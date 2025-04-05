@@ -57,14 +57,14 @@ def generate_var_map_constant(names: list, type, lower_bound, upper_bound) -> di
 
 def generate_name_matrix(row_num, col_num, prefix) -> list:
     names_list = []
-    for i in range(row_num):
-        for j in range(col_num):
+    for i in range(row_num + 1):
+        for j in range(col_num + 1):
             names_list.append(prefix + "_" + str(i) + "_" + str(j))
 
     return names_list
 
 def add_constraint(model: gp.Model, name: str, inequality):
-    return model.addConstraint(inequality, name=name)
+    return model.addConstr(inequality, name=name)
 
 
 def get_variable(model: gp.Model, name: str) -> Var:

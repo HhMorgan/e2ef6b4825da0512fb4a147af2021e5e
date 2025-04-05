@@ -7,7 +7,7 @@ import networkx as nx
 from gurobipy import GRB
 
 from src.util.utils import generate_names, generate_name_matrix, generate_var_map, generate_var_map_constant, \
-    add_variables, add_constraint, set_value
+    add_variables, add_constraint, set_value, get_variable
 
 
 def read_instance_file(filename: str | os.PathLike) -> nx.Graph:
@@ -60,6 +60,12 @@ def build_model(model: gp.Model, graph: nx.Graph):
     n = len(graph.nodes)
     m = len(graph.edges)
 
+    complete_graph = {(i, j) for i in range(len(graph.nodes)) for j in range(len(graph.nodes))}  # set comprehension
+    reversed_edges = {(j,i) for (i,j) in graph.edges}
+    present_edges = reversed_edges.union(set(graph.edges))
+    complement = complete_graph.difference(present_edges)
+
+
     # given variables
     demand_names = generate_names(n, "b")
     trans_cost_names = generate_name_matrix(n, n, "c")
@@ -102,21 +108,50 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
     for i in graph.nodes:
         set_value(model, "b_" + str(i), graph.nodes[i]['supply_demand'])
+        b_i = get_variable(model, "b_" + str(i))
+
+        sum_incoming = gp.quicksum(get_variable(model, "f_" + str(i) + "_" + str(j)) for j in graph.nodes)
+        sum_outgoing = gp.quicksum(get_variable(model, "f_" + str(j) + "_" + str(i)) for j in graph.nodes)
+        add_constraint(model, "flow_conservation_" + str(i), sum_incoming - sum_outgoing == b_i)
 
     for (i, j) in graph.edges:
         props = graph.edges[i, j]
+        create_edge_constraints(i, j, props)
+        create_edge_constraints(j, i, props)
+
+    # prevent missing edges from being built
+    for (i, j) in complement:
         ij_suffix = str(i) + "_" + str(j)
-        set_value(model, "x_" + ij_suffix, props['transport_cost'])
-        set_value(model, "x_" + ij_suffix, props['build_cost_1'])
-        set_value(model, "x_" + ij_suffix, props['build_cost_2'])
-        set_value(model, "x_" + ij_suffix, props['capacity_1'])
-        set_value(model, "x_" + ij_suffix, props['capacity_2'])
+        x1_ij = get_variable(model, "x1_" + ij_suffix)
+        x2_ij = get_variable(model, "x2_" + ij_suffix)
+        f_ij = get_variable(model, "f_" + ij_suffix)
 
-
-    # constraints
-
+        add_constraint(model, "unbuildable_edge" + ij_suffix, x1_ij + x2_ij == 0)
+        add_constraint(model, "unusable_flow" + ij_suffix, f_ij == 0)
 
     model.setObjective(GRB.MINIMIZE)
+
+def create_edge_constraints(i: int, j: int, props: dict):
+    ij_suffix = str(i) + "_" + str(j)
+
+    # variables
+    set_value(model, "c_" + ij_suffix, props['transport_cost'])
+    set_value(model, "d_" + ij_suffix, props['build_cost_1'])
+    set_value(model, "d_" + ij_suffix, props['build_cost_2'])
+    set_value(model, "u_" + ij_suffix, props['capacity_1'])
+    set_value(model, "u_" + ij_suffix, props['capacity_2'])
+
+    # constraints
+    x1_ij = get_variable(model, "x1_" + ij_suffix)
+    x2_ij = get_variable(model, "x2_" + ij_suffix)
+    u1_ij = get_variable(model, "u1_" + ij_suffix)
+    u2_ij = get_variable(model, "u2_" + ij_suffix)
+    f_ij = get_variable(model, "f_" + ij_suffix)
+
+    add_constraint(model, "only_build_one" + ij_suffix, x1_ij + x2_ij <= 1)
+    add_constraint(model, "positive_flow" + ij_suffix, f_ij >= 0)
+    add_constraint(model, "constrained_flow" + ij_suffix, f_ij <= x1_ij * u1_ij + x2_ij * u2_ij)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -128,8 +163,8 @@ if __name__ == "__main__":
     model = gp.Model("ex1.1")
     build_model(model, graph)
 
-    # model.update()
-    # model.optimize()
+    model.update()
+    model.optimize()
 
     if model.SolCount > 0:
         print(f"obj. value = {model.ObjVal}")
