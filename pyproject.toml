@@ -1,0 +1,29 @@
+[project]
+name = "mathprog-ex1"
+version = "1.0.0"
+description = "Code template for Mathematical Programming, exercise sheet 1"
+readme = "README.md"
+authors = [
+    { name = "Georg Brandstätter", email = "georg.brandstaetter@tuwien.ac.at" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "gurobipy>=12.0.1",
+    "networkx>=3.4.2",
+    "numpy>=2.2.4",
+]
+
+[project.scripts]
+mathprog-ex1 = "mathprog_ex1:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.2",
+]
+
+[tool.ruff]
+line-length = 120
