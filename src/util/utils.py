@@ -1,5 +1,5 @@
 import gurobipy as gp
-from gurobipy import Var
+from gurobipy import Var, GRB
 
 TYPE = "vtype"
 LOWER = "lower"
@@ -9,20 +9,41 @@ UPPER = "upper"
 def add_variable(model: gp.Model, name: str, vtype, lower, upper) -> Var:
         return model.addVar(vtype=vtype, name=name, lb=lower, ub=upper)
 
+def add_variable_unconstrained(model: gp.Model, name: str, vtype) -> Var:
+    return model.addVar(vtype=vtype, name=name)
+
 def add_variables(model, var_map=None) -> list:
     if var_map is None:
         var_map = {}
 
     var_list = []
     for name, props in var_map.items():
-        var_list.append(add_variable(model, name, props[TYPE], props[LOWER], props[UPPER]))
+        if props[TYPE] is GRB.BINARY:
+            var_list.append(add_variable_unconstrained(model, name, GRB.BINARY))
+        else:
+            var_list.append(add_variable(model, name, props[TYPE], props[LOWER], props[UPPER]))
 
     return var_list
 
 def generate_names(number: int, prefix) -> list:
     names_list = []
     for i in range(number):
+        names_list.append(prefix + "_" + str(i + 1))
+
+    return names_list
+
+def generate_names_in_range(from_idx: int, to_idx: int, prefix) -> list:
+    names_list = []
+    for i in range(from_idx, to_idx):
         names_list.append(prefix + "_" + str(i))
+
+    return names_list
+
+def generate_name_matrix(row_num, col_num, prefix) -> list:
+    names_list = []
+    for i in range(1, row_num + 1):
+        for j in range(1, col_num + 1):
+            names_list.append(prefix + "_" + str(i) + "_" + str(j))
 
     return names_list
 
@@ -53,15 +74,6 @@ def generate_var_map_constant(names: list, type, lower_bound, upper_bound) -> di
         var_map[names[i]] = props
 
     return var_map
-
-
-def generate_name_matrix(row_num, col_num, prefix) -> list:
-    names_list = []
-    for i in range(row_num + 1):
-        for j in range(col_num + 1):
-            names_list.append(prefix + "_" + str(i) + "_" + str(j))
-
-    return names_list
 
 def add_constraint(model: gp.Model, name: str, inequality):
     return model.addConstr(inequality, name=name)
