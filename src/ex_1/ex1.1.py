@@ -129,7 +129,17 @@ def build_model(model: gp.Model, graph: nx.Graph):
         add_constraint(model, "unbuildable_edge" + ij_suffix, x1_ij + x2_ij == 0)
         add_constraint(model, "unusable_flow" + ij_suffix, f_ij == 0)
 
-    model.setObjective(GRB.MINIMIZE)
+    # objective function
+    objective_func = gp.quicksum(
+        get_variable(model, "f_" + str(i) + "_" + str(j)) *
+        get_variable(model, "c_" + str(i) + "_" + str(j)) +
+        get_variable(model, "x1_" + str(i) + "_" + str(j)) *
+        get_variable(model, "d1_" + str(i) + "_" + str(j)) +
+        get_variable(model, "x2_" + str(i) + "_" + str(j)) *
+        get_variable(model, "d2_" + str(i) + "_" + str(j))
+            for (i,j) in complete_graph)
+
+    model.setObjective(objective_func, GRB.MINIMIZE)
 
 def create_edge_constraints(i: int, j: int, props: dict):
     ij_suffix = str(i) + "_" + str(j)
