@@ -1,5 +1,6 @@
 import argparse
 import os
+
 from pathlib import Path
 
 import gurobipy as gp
@@ -67,11 +68,11 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
     # given variables
     demand_names = generate_names(n, "b")
-    trans_cost_names = generate_name_matrix(n, n, "c")
-    building_cost_1_names = generate_name_matrix(n, n, "d1")
-    building_cost_2_names = generate_name_matrix(n, n, "d2")
-    capacity_1_names = generate_name_matrix(n, n, "u1")
-    capacity_2_names = generate_name_matrix(n, n, "u2")
+    trans_cost_names = generate_name_matrix(1, n + 1, n, n, "c")
+    building_cost_1_names = generate_name_matrix(1, n + 1, n, n, "d1")
+    building_cost_2_names = generate_name_matrix(1, n + 1, n, n, "d2")
+    capacity_1_names = generate_name_matrix(1, n + 1, n, n, "u1")
+    capacity_2_names = generate_name_matrix(1, n + 1, n, n, "u2")
 
     demand_vars = generate_var_map_constant(demand_names, GRB.CONTINUOUS, -GRB.INFINITY, GRB.INFINITY)
     trans_cost_vars = generate_var_map_constant(trans_cost_names, GRB.CONTINUOUS, 0, GRB.INFINITY)
@@ -81,9 +82,9 @@ def build_model(model: gp.Model, graph: nx.Graph):
     capacity_2_vars = generate_var_map_constant(capacity_2_names, GRB.CONTINUOUS, 0, GRB.INFINITY)
 
     # optimization variables
-    flows_names = generate_name_matrix(n, n, "f")
-    is_1_built_names = generate_name_matrix(n, n, "x1")
-    is_2_built_names = generate_name_matrix(n, n, "x2")
+    flows_names = generate_name_matrix(1, n + 1, n, n, "f")
+    is_1_built_names = generate_name_matrix(1, n + 1, n, n, "x1")
+    is_2_built_names = generate_name_matrix(1, n + 1, n, n, "x2")
 
     flow_vars = generate_var_map_constant(flows_names, GRB.CONTINUOUS , 0, GRB.INFINITY)
     built_link_1_vars = generate_var_map_constant(is_1_built_names, GRB.BINARY, 0, 1)
