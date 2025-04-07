@@ -39,7 +39,7 @@ def generate_names_in_range(from_idx: int, to_idx: int, prefix) -> list:
 
     return names_list
 
-def generate_name_matrix(from_idx: int, to_idx: int,row_num, col_num, prefix) -> list:
+def generate_name_matrix(from_idx: int, to_idx: int, row_num: int, col_num: int, prefix: str) -> list:
     names_list = []
     for i in range(from_idx, to_idx):
         for j in range(1, col_num + 1):

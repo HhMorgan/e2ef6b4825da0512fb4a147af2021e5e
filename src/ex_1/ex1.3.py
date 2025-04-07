@@ -5,16 +5,86 @@ from gurobipy import GRB
 
 
 def build_model(model: gp.Model, n: int, k: int):
-    # put your model building code here
+    p = model.addVars(
+        n,
+        name="p",
+        vtype=GRB.INTEGER,
+    )
+
+    d = model.addVars(
+        [(i,j,g) for i in range(n) for j in range(n) for g in range(2)],
+        name="d",
+        vtype=GRB.BINARY,
+    )
+    w = model.addVars(
+        [(i,j,g) for i in range(n) for j in range(n) for g in range(2)],
+        name="w",
+        vtype=GRB.BINARY,
+    )
+
+    z = model.addVars(
+        n,
+        name="z",
+        vtype=GRB.BINARY,
+    )
+    r = model.addVars(
+        n,
+        name="r",
+        vtype=GRB.BINARY,
+    )
+    mu = model.addVar(
+        name="µ",
+        vtype=GRB.INTEGER,
+    )
+
+    # x = model.addVars(
+    #     [(i,j) for i in range(n) for j in range(n)],
+    #     name="x",
+    #     vtype=GRB.BINARY,
+    # )
+    # r = model.addVars(
+    #     n,
+    #     name="r",
+    #     vtype=GRB.INTEGER,
+    # )
+
+    m = 6 * (n-1) # maximum number of point a team can achieve in theory (winning every game)
+
+    # constraints
+    model.addConstrs((d[i,j,g] == d[j,i,g] for i in range(n) for j in range(n) for g in range(2)),
+                     name="If game (i,j) ends in a draw, both teams receive the draw")
+    model.addConstrs((w[i,j,g] + w[j,i,g] + d[i,j,g] == 1 for i in range(n) for j in range(n) for g in range(2)),
+                     name="In a game (i,j), there can only be one winner or a draw")
+    model.addConstrs((gp.quicksum(3 * w[i,j,g] + d[i,j,g] for j in range(n) for g in range(2) if j != i) == p[i] for i in range(n)),
+                     name="Sum of points received by all games for team i")
+
+    # r constraints
+    model.addConstrs((p[i] <= mu + m * (1-r[i]) for i in range(n)),
+                     name="If team i has <= points than µ, it must get relegated")
+    model.addConstrs((p[i] >= mu + 1 - m * r[i] for i in range(n)),
+                     name="If team i has > points than µ, it must not get relegated")
+    model.addConstr(gp.quicksum(r[i] for i in range(n)) == k,
+                    name="There must be exactly k teams that get relegated")
+    # z constraints
+    model.addConstrs((p[i] - mu <= m * (1 - z[i]) for i in range(n)),
+                     name="z_i must be 1 if p_i is <= to mu")
+    model.addConstrs((p[i] - mu >= -m * (1 - z[i]) for i in range(n)),
+                     name="z_i must be 1 if p_i is >= to mu")
+    model.addConstr(gp.quicksum(z[i] for i in range(n)) >= 1,
+                    name="µ must be equal to the points of at least one team")
+
+    # model.addConstrs((p[j] - p[i] <= m * (1-x[i,j]) for i in range(n) for j in range(n)),
+    #                  name="")
+    # model.addConstrs((r[j] - x[i,j] <= r[i] + 1 + m * (1-x[i,j]) for i in range(1,n) for j in range(1,n) if i != j),
+    #                  name="")
+    # model.addConstrs((1 <= r[i] for i in range(1,n)), name="")
+    # model.addConstrs((r[i] <= n-1 for i in range(1,n)), name="")
     #
-    # x = model.addVars(...)
-    #
-    # if you want to access your variables outside this function, you can use
-    # model._x = x
-    # to save a reference in the model itself
-    #
-    # model.addConstrs(...)
-    pass
+    # model.setObjective(p[k] + 1, GRB.MAXIMIZE)
+
+    # we want to push mu as high as possible and add 1 point to ensure non-relegation
+    model.setObjective(mu + 1, GRB.MAXIMIZE)
+
 
 
 if __name__ == "__main__":

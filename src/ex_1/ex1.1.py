@@ -181,6 +181,7 @@ if __name__ == "__main__":
     if model.SolCount > 0:
         print(f"obj. value = {model.ObjVal}")
         for v in model.getVars():
-            print(f"{v.VarName} = {v.X}")
+            #print(f"{v.VarName} = {v.X}")
+            pass
 
     model.close()
