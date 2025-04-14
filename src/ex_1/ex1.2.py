@@ -50,26 +50,27 @@ def build_model(model: gp.Model, processing_times: np.ndarray, machine_sequences
     s = model.addVars(
         [(i,j) for i in range(m) for j in range(n)],
         name="s",
-        vtype=GRB.INTEGER,
+        vtype=GRB.SEMIINT, lb=0.0
     )
 
     # constraints
-    C = n * m * processing_times.max()
+    C = n * m * processing_times.max() # starting time cannot get any worse than this
+
     model.addConstrs((s[i, j] >= s[i, k] + p[k][i] - C * x[i, j, k] for i in range(m) for j in range(n) for k in range(n) if j != k),
                      name="A job j can only start after its preceding job k finished")
-    #model.addConstrs((s[i,k] + p[k][i] <= s[i,j] + C * x[i,j,k] for i in range(m) for j in range(n) for k in range(n) if j != k),
-    #                 name="A job j can only start after its preceding job k finished")
+
     model.addConstrs((s[i,j] + p[j][i] <= s[i,k] + C * (1 - x[i,j,k]) for i in range(m) for j in range(n) for k in range(n) if j != k),
                      name="A job j must start before its succeeding job k is started")
-
-    model.addConstrs((gp.quicksum(x[i,j,k] for j in range(n) for k in range(n) if j != k) * 2 == n*(n-1) for i in range(m)),
-                     name="On every machine, the sum of job precedence must be n(n-1)/2")
 
     model.addConstrs((s[pie[j][l],j] >= s[pie[j][l-1],j] + p[j][pie[j][l-1]] for l in range(1, m) for j in range(n)),
                      name="Enforce the correct order of machines for job j")
 
+    # this constraint is redundant
+    #model.addConstrs((gp.quicksum(x[i,j,k] for j in range(n) for k in range(n) if j != k) * 2 == n*(n-1) for i in range(m)),
+    #                 name="On every machine, the sum of job precedence must be n(n-1)/2")
 
-    # we want to get the sum of the job completion times of the last job on the last machine
+
+    # we want to get the sum of the job completion times of each job on its last machine
     model.setObjective(gp.quicksum(s[pie[j][m-1],j] + p[j][pie[j][m-1]] for j in range(n)), GRB.MINIMIZE)
 
 
