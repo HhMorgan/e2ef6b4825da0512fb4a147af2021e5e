@@ -54,7 +54,7 @@ def build_model(model: gp.Model, processing_times: np.ndarray, machine_sequences
     )
 
     # constraints
-    C = 100_000
+    C = n * m * processing_times.max()
     model.addConstrs((s[i, j] >= s[i, k] + p[k][i] - C * x[i, j, k] for i in range(m) for j in range(n) for k in range(n) if j != k),
                      name="A job j can only start after its preceding job k finished")
     #model.addConstrs((s[i,k] + p[k][i] <= s[i,j] + C * x[i,j,k] for i in range(m) for j in range(n) for k in range(n) if j != k),
