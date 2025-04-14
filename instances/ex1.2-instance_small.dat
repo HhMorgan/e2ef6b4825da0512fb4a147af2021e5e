@@ -1,0 +1,11 @@
+3
+2
+# line j = processing times for job j: p_j0 p_j1 ... p_j(m-1)
+10 5
+5 10
+10 10
+# line j = machine sequence for job j: machine_index_0 machine_index_1 ... machine_index_(m-1)
+0 1
+1 0
+0 1
+

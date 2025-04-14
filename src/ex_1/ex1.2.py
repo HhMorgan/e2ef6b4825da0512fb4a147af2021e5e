@@ -52,13 +52,15 @@ def build_model(model: gp.Model, processing_times: np.ndarray, machine_sequences
         name="s",
         vtype=GRB.INTEGER,
     )
-    model.addConstrs(
-        (s[i, j] >= s[i, k] + p[k][i] - GRB.MAXINT * (x[i, j, k]) for i in range(m) for j in range(n) for k in range(n) if j != k),
-        name="A job j can only start after its preceding job k finished")
-    # model.addConstrs((s[i,k] + p[k][i] <= s[i,j] + GRB.MAXINT * x[i,j,k] for i in range(m) for j in range(n) for k in range(n) if j != k),
-    #                  name="A job j can only start after its preceding job k finished")
-    model.addConstrs((s[i,j] + p[j][i] <= s[i,k] + GRB.MAXINT * (1 - x[i,j,k]) for i in range(m) for j in range(n) for k in range(n) if j != k),
-                    name="A job j must start before its succeeding job k is started")
+
+    # constraints
+    C = 100_000
+    model.addConstrs((s[i, j] >= s[i, k] + p[k][i] - C * x[i, j, k] for i in range(m) for j in range(n) for k in range(n) if j != k),
+                     name="A job j can only start after its preceding job k finished")
+    #model.addConstrs((s[i,k] + p[k][i] <= s[i,j] + C * x[i,j,k] for i in range(m) for j in range(n) for k in range(n) if j != k),
+    #                 name="A job j can only start after its preceding job k finished")
+    model.addConstrs((s[i,j] + p[j][i] <= s[i,k] + C * (1 - x[i,j,k]) for i in range(m) for j in range(n) for k in range(n) if j != k),
+                     name="A job j must start before its succeeding job k is started")
 
     model.addConstrs((gp.quicksum(x[i,j,k] for j in range(n) for k in range(n) if j != k) * 2 == n*(n-1) for i in range(m)),
                      name="On every machine, the sum of job precedence must be n(n-1)/2")
@@ -74,6 +76,7 @@ def build_model(model: gp.Model, processing_times: np.ndarray, machine_sequences
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--filename", default="../../instances/ex1.2-instance.dat")
+    #parser.add_argument("--filename", default="../../instances/ex1.2-instance_small.dat")
     args = parser.parse_args()
 
     processing_times, machine_sequences = read_instance_file(args.filename)
