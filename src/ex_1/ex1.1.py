@@ -87,7 +87,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
     for i in node_indices:
         sum_incoming = gp.quicksum(f[u, v] for (u, v) in present_edges if v == i)
         sum_outgoing = gp.quicksum(f[v, u] for (v, u) in present_edges if v == i)
-        model.addConstr(sum_incoming - sum_outgoing == graph.nodes[i]['supply_demand'], name="flow_conservation")
+        model.addConstr(sum_outgoing - sum_incoming == graph.nodes[i]['supply_demand'], name="flow_conservation")
 
     for (i, j) in present_edges: # add constraints for both directions of each edge
         props = graph.edges[i, j]
