@@ -2,6 +2,8 @@ import argparse
 import os
 from pathlib import Path
 
+from src.util.utils import generate_latex_table, generate_three_tables_per_page,generate_three_long_tables_per_page
+
 import gurobipy as gp
 import numpy as np
 from gurobipy import GRB
@@ -98,5 +100,5 @@ if __name__ == "__main__":
         print(f"obj. value = {model.ObjVal}")
         for v in model.getVars():
             print(f"{v.VarName} = {v.X}")
-
+    latex_table = generate_three_long_tables_per_page(model)
     model.close()

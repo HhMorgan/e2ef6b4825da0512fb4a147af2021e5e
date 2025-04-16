@@ -85,3 +85,113 @@ def get_variable(model: gp.Model, name: str) -> Var:
 def set_value(model: gp.Model, var_name: str, value):
     variable = get_variable(model, var_name)
     model.addConstr(variable == value, name=var_name + "_value")
+
+import re
+def latex_escape(s):
+    """
+    Escape characters that are special in LaTeX.
+    """
+    return re.sub(r'([&_#%])', r'\\\1', s)
+
+def generate_latex_table(model, output_file="variable_table.txt"):
+    lines = [
+        r"\begin{longtable}{|c|c|}",
+        r"\hline",
+        r"\textbf{Variable} & \textbf{Value} \\",
+        r"\hline",
+        r"\endfirsthead",
+        r"\hline \textbf{Variable} & \textbf{Value} \\ \hline",
+        r"\endhead"
+    ]
+
+    for var in model.getVars():
+        name = latex_escape(var.VarName)
+        val = var.X
+        lines.append(f"{name} & {val:.4f} \\\\")
+        lines.append(r"\hline")
+
+    lines.append(r"\end{longtable}")
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+def generate_three_tables_per_page(model, vars_per_table=25, output_file="variable_table.txt"):
+    vars_list = model.getVars()
+    total_vars = len(vars_list)
+
+    tables = []
+    for i in range(0, total_vars, vars_per_table):
+        chunk = vars_list[i:i + vars_per_table]
+
+        table = [
+            r"\begin{tabular}{|c|c|}",
+            r"\hline",
+            r"\textbf{Variable} & \textbf{Value} \\",
+            r"\hline"
+        ]
+
+        for var in chunk:
+            name = latex_escape(var.VarName)
+            val = var.X
+            table.append(f"{name} & {val:.4f} \\\\")
+            table.append(r"\hline")
+
+        table.append(r"\end{tabular}")
+        tables.append("\n".join(table))
+
+    # Group every 3 tables with spacing and page breaks
+    final_output = []
+    for i in range(0, len(tables), 3):
+        group = tables[i:i+3]
+        final_output.append(r"\noindent")
+        for t in group:
+            final_output.append(r"{\small")
+            final_output.append(t)
+            final_output.append(r"}")
+            final_output.append(r"\vspace{1em}")
+        final_output.append(r"\clearpage")
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(final_output))
+
+
+def generate_three_long_tables_per_page(model, vars_per_table=50, output_file="variable_table.txt"):
+    vars_list = model.getVars()
+    total_vars = len(vars_list)
+
+    tables = []
+    for i in range(0, total_vars, vars_per_table):
+        chunk = vars_list[i:i + vars_per_table]
+
+        table = [
+            r"\begin{tabular}{|c|c|}",
+            r"\hline",
+            r"\textbf{Variable} & \textbf{Value} \\",
+            r"\hline"
+        ]
+
+        for var in chunk:
+            name = latex_escape(var.VarName)
+            val = var.X
+            table.append(f"{name} & {val:.4f} \\\\")
+            table.append(r"\hline")
+
+        table.append(r"\end{tabular}")
+        tables.append("\n".join(table))
+
+    # Group every 3 tables, then insert a page break
+    final_output = []
+    for i in range(0, len(tables), 4):
+        group = tables[i:i+4]
+        final_output.append(r"\noindent")
+        for t in group:
+            final_output.append(r"{\small")
+            final_output.append(t)
+            final_output.append(r"}")
+            final_output.append(r"\vspace{1em}")
+        final_output.append(r"\clearpage")
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(final_output))
+

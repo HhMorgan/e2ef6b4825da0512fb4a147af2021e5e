@@ -1,7 +1,9 @@
+
 import argparse
 
 import gurobipy as gp
 from gurobipy import GRB
+from src.util.utils import generate_latex_table, generate_three_tables_per_page,generate_three_long_tables_per_page
 
 
 def build_model(model: gp.Model, n: int, k: int):
@@ -49,12 +51,13 @@ def build_model(model: gp.Model, n: int, k: int):
     # )
 
     m = 6 * (n-1) # maximum number of point a team can achieve in theory (winning every game)
-
     # constraints
     model.addConstrs((d[i,j,g] == d[j,i,g] for i in range(n) for j in range(n) for g in range(2)),
                      name="If game (i,j) ends in a draw, both teams receive the draw")
-    model.addConstrs((w[i,j,g] + w[j,i,g] + d[i,j,g] == 1 for i in range(n) for j in range(n) for g in range(2)),
+    model.addConstrs((w[i,j,g] + w[j,i,g] + d[i,j,g] == 1 for i in range(n) for j in range(n) for g in range(2) if j != i),
                      name="In a game (i,j), there can only be one winner or a draw")
+    model.addConstrs((w[i, i, g] + w[i, i, g] + d[i, i, g] == 0 for i in range(n) for g in range(2)),
+                     name="In a game (i,i), no self loops")
     model.addConstrs((gp.quicksum(3 * w[i,j,g] + d[i,j,g] for j in range(n) for g in range(2) if j != i) == p[i] for i in range(n)),
                      name="Sum of points received by all games for team i")
 
@@ -87,6 +90,7 @@ def build_model(model: gp.Model, n: int, k: int):
 
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", default=18)
@@ -104,4 +108,6 @@ if __name__ == "__main__":
         for v in model.getVars():
             print(f"{v.VarName} = {v.X}")
 
+    latex_table = generate_three_long_tables_per_page(model)
+    # print(latex_table)
     model.close()
