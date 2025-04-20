@@ -110,7 +110,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--filename", default="../../instances/ex1.1-instance.dat")
+    parser.add_argument("--filename", default="../../instances/ex1/ex1.1-instance.dat")
     args = parser.parse_args()
 
     graph = read_instance_file(args.filename)

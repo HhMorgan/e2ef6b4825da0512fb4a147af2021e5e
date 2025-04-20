@@ -78,8 +78,8 @@ def build_model(model: gp.Model, processing_times: np.ndarray, machine_sequences
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--filename", default="../../instances/ex1.2-instance.dat")
-    #parser.add_argument("--filename", default="../../instances/ex1.2-instance_small.dat")
+    parser.add_argument("--filename", default="../../instances/ex1/ex1.2-instance.dat")
+    #parser.add_argument("--filename", default="../../instances/ex1/ex1.2-instance_small.dat")
     args = parser.parse_args()
 
     processing_times, machine_sequences = read_instance_file(args.filename)
