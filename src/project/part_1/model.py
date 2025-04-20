@@ -42,19 +42,26 @@ def add_violated_dcc(model: gp.Model):
     pass
 
 
-def create_model(model: gp.Model):
-    # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/reference/python.html
+def create_model(model: gp.Model, graph: nx.Graph, k: int):
+    graph.undirected = True  # make sure the graph is undirected
 
+    node_indices = [n for n in graph] # grab the ID of every node in the graph
+
+    reversed_edges = {(j, i) for (i, j) in graph.edges}
+    present_edges = reversed_edges.union(set(graph.edges))  # edges in graph and their inverted counterpart
 
     # create common variables
     # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.addVars
 
     # x = m.addVars(...)
-
+    x = model.addVars(
+        [(i, j) for (i, j) in present_edges],
+        name="x",
+        vtype=GRB.BINARY
+    )
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
-
-    # m._x = x
+    model._x = x
 
 
     # create common constraints
@@ -63,7 +70,19 @@ def create_model(model: gp.Model):
 
     # create model-specific variables and constraints
     if model._formulation == "seq":
-        pass
+        v = model.addVars(
+            node_indices,
+            name="v",
+            vtype=GRB.INTEGER,
+        )
+
+
+        model.addConstrs((v[i] >= 1 for i in node_indices), "positive ordering")
+        model.addConstrs((v[i] <= node_indices[-1] for i in node_indices), "integer-step ordering")
+        model.addConstr(v[0] == 0, "zero vertex as root node")
+        model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k, "MST with k vertices")
+
+
     elif model._formulation == "scf":
         pass
     elif model._formulation == "mcf":

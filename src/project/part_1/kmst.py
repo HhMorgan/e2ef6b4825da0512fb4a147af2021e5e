@@ -34,7 +34,7 @@ if __name__ == "__main__":
         model._k = args.k
         model._formulation = args.formulation
 
-        create_model(model)
+        create_model(model, G, args.k)
         model.update()
 
         if not model.IsMIP:
@@ -43,7 +43,7 @@ if __name__ == "__main__":
             sys.exit(f"Error: Your formulation for '{args.formulation}' is non-linear.")
 
         # write model to file in readable format (useful for debugging)
-        # model.write("model.lp")
+        model.write("model.lp")
 
         # set thread, time and memory limit
         if args.threads:
