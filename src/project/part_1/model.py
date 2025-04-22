@@ -105,9 +105,9 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                           for j_n in node_indices),
                           name="consume one unit")
 
-        model.addConstrs((y[n] >= 1/n * gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
+        model.addConstrs((y[n] >= 1/n * gp.quicksum(f[i,j] for (i,j) in present_edges_with_root if j == n)
                           for n in node_indices), name="be present if you receive flow")
-        model.addConstrs((y[n] <= gp.quicksum(x[i,j] + x[j,i] for (i,j) in present_edges if j == n)
+        model.addConstrs((y[n] <= gp.quicksum(f[i,j] + f[j,i] for (i,j) in present_edges if j == n)
                           for n in node_indices), name="be absent if you receive no flow")
 
         model.addConstrs((0 <= f[i,j] for (i, j) in present_edges_with_root), name="positive flow")
