@@ -93,16 +93,16 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstrs((gp.quicksum(f[i, j] for (i, j) in present_edges if j == j_n) -
                           gp.quicksum(f[j, i] for (j, i) in present_edges if j == j_n) == 1
                           for j_n in node_indices),
-                          name="source flow")
+                          name="consume one unit")
 
         model.addConstrs((0 <= f[i,j] for (i, j) in present_edges), name="positive flow")
         model.addConstrs((f[i,j] <= (k-1) * x[i,j] for (i, j) in present_edges), name="capped flow")
 
     elif model._formulation == "mcf":
-        present_edges_times_vertices = [(i,j,v) for (i,j) in present_edges for v in node_indices]
+        present_edges_times_vertices = set((i,j,v) for (i,j) in present_edges for v in node_indices)
 
         f = model.addVars(
-            present_edges_times_vertices + list((0,j,v) for j in node_indices for v in node_indices),
+            present_edges_times_vertices.union((0,j,v) for j in node_indices for v in node_indices),
             name="f",
             vtype=GRB.BINARY,
         )
@@ -110,19 +110,14 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) == 1
                         for v in node_indices), name="source flow")
 
-        # does not work
-        # for v in node_indices:
-        #     incoming_flow = 0
-        #     for (i,j) in present_edges:
-        #         if j == v:
-        #             incoming_flow += f[i,j,v]
-        #
-        #     model.addConstr(incoming_flow == x[i,v], name="consume own unit flow")
+        model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in present_edges if v == v_n) ==
+                         1/len(node_indices) * gp.quicksum(x[i,v] for (i,v) in present_edges if v == v_n)
+                         for v_n in node_indices), "consume own flow")
 
         model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in present_edges_times_vertices if j == j_n and v == v_n) -
                           gp.quicksum(f[j,i,v] for (i,j,v) in present_edges_times_vertices if j == j_n and v == v_n)
                           == 0
-                          for j_n in node_indices for v_n in node_indices),
+                          for j_n in node_indices for v_n in node_indices if v_n != j_n),
                          name="non-consumption of foreign flow")
 
         model.addConstrs((0 <= f[i,j,v] for (i,j,v) in present_edges_times_vertices),
@@ -140,13 +135,14 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
     # common objective function
     model.setObjective(gp.quicksum(x[i,j] * graph.edges[i,j]['cost'] for (i,j) in present_edges), GRB.MINIMIZE)
 
+
 def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     # note that you may need to account for tolerances
     # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/concepts/modeling/tolerances.html
 
     # https://docs.gurobi.com/projects/optimizer/en/current/concepts/attributes/examples.html
 
-    for v in model.getVars():
+    for v in sorted(model.getVars(), key=lambda x: x.VarName):
         print(v.VarName)
 
     reversed_edges = {(j, i) for (i, j) in graph.edges}
