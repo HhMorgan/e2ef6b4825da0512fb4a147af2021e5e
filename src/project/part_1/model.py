@@ -46,7 +46,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
     graph.undirected = True  # make sure the graph is undirected
 
     node_indices = [n for n in graph] # grab the ID of every node in the graph
-    n = len(node_indices)
 
     reversed_edges = {(j, i) for (i, j) in graph.edges}
     present_edges = reversed_edges.union(set(graph.edges))  # edges in graph and their inverted counterpart
@@ -92,7 +91,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         )
 
         f = model.addVars(
-            present_edges.union((0,j) for j in node_indices),
+            present_edges_with_root,
             name="f",
             vtype=GRB.INTEGER,
         )
@@ -105,7 +104,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                           for j_n in node_indices),
                           name="consume one unit")
 
-        model.addConstrs((y[n] >= 1/n * gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
+        model.addConstrs((y[n] >= 1/len(node_indices) * gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
                           for n in node_indices), name="be present if you receive flow")
         model.addConstrs((y[n] <= gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
                           for n in node_indices), name="be absent if you receive no flow")
@@ -130,7 +129,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
 
         model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in present_edges_with_root if v == v_n) -
                           gp.quicksum(f[v,i,v] for (v,i) in present_edges_with_root if v == v_n)>=
-                         1/n * gp.quicksum(x[i,v] for (i,v) in present_edges_with_root if v == v_n)
+                         1/len(node_indices) * gp.quicksum(x[i,v] for (i,v) in present_edges_with_root if v == v_n)
                          for v_n in node_indices), "consume own flow")
 
         model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in edges_times_vertices_with_root if j == j_n and v == v_n) -
