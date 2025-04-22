@@ -12,7 +12,7 @@ if __name__ == "__main__":
     # parse command line arguments
     parser = argparse.ArgumentParser(description="ILP-based k-MST solver")
     parser.add_argument("--instance", type=str, required=True, help="path to instance file")
-    parser.add_argument("--k", type=int, required=True, help="instance parameter k")
+    parser.add_argument("-k", type=int, required=True, help="instance parameter k")
     parser.add_argument("--formulation", required=True, choices=["seq", "scf", "mcf", "cec", "dcc"])
     parser.add_argument("--results-file", type=str, help="path to results file")
     parser.add_argument("--solution-file", type=str, help="path to solution file")
@@ -72,8 +72,11 @@ if __name__ == "__main__":
 
 
         # check solution feasibility
-        selected_edges = set(get_selected_edge_ids(model))
+        selected_edges = set(get_selected_edge_ids(model, G))
         k_mst = G.edge_subgraph(edge for edge in G.edges if G.edges[edge]["id"] in selected_edges)
+
+        if k_mst.number_of_nodes() == 0:
+            sys.exit("Error: Received an empty subgraph.")
         if not nx.is_tree(k_mst):
             print("Error: the provided solution is not a tree!")
             print(f"{k_mst.number_of_nodes()=}")

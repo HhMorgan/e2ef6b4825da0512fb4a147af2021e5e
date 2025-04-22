@@ -83,16 +83,16 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
 
     elif model._formulation == "scf":
         f = model.addVars(
-            present_edges,
+            present_edges.union((0,j) for j in node_indices),
             name="f",
             vtype=GRB.INTEGER,
         )
 
         model.addConstr(gp.quicksum(f[0, j] for j in node_indices) == k, name="source flow")
 
-        model.addConstrs((gp.quicksum(f[i, j] for (i, j) in present_edges) -
-                          gp.quicksum(f[j, i] for (j, i) in present_edges) == 1
-                          for j in node_indices),
+        model.addConstrs((gp.quicksum(f[i, j] for (i, j) in present_edges if j == j_n) -
+                          gp.quicksum(f[j, i] for (j, i) in present_edges if j == j_n) == 1
+                          for j_n in node_indices),
                           name="source flow")
 
         model.addConstrs((0 <= f[i,j] for (i, j) in present_edges), name="positive flow")
@@ -102,7 +102,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         present_edges_times_vertices = [(i,j,v) for (i,j) in present_edges for v in node_indices]
 
         f = model.addVars(
-            present_edges_times_vertices,
+            present_edges_times_vertices + list((0,j,v) for j in node_indices for v in node_indices),
             name="f",
             vtype=GRB.BINARY,
         )
@@ -140,9 +140,25 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
     # common objective function
     model.setObjective(gp.quicksum(x[i,j] * graph.edges[i,j]['cost'] for (i,j) in present_edges), GRB.MINIMIZE)
 
-def get_selected_edge_ids(model: gp.Model) -> list[int]:
+def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     # note that you may need to account for tolerances
     # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/concepts/modeling/tolerances.html
 
     # https://docs.gurobi.com/projects/optimizer/en/current/concepts/attributes/examples.html
-    return []
+
+    for v in model.getVars():
+        print(v.VarName)
+
+    reversed_edges = {(j, i) for (i, j) in graph.edges}
+    present_edges = reversed_edges.union(set(graph.edges))  # edges in graph and their inverted counterpart
+
+    selected_edges: list[int] = []
+    if model.SolCount > 0:
+        for (i,j) in present_edges:
+            x_ij = model.getVarByName(f'x[{i},{j}]')
+
+            if x_ij.X == 1:
+                edge_id: int = int(graph.edges[i,j]['id'])
+                selected_edges.append(edge_id)
+
+    return selected_edges
