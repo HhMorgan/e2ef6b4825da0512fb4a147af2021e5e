@@ -83,10 +83,11 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstr(v[0] == 0, "zero vertex as root node")
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k, "MST with k vertices")
 
+
     elif model._formulation == "scf":
-        v = model.addVars(
+        y = model.addVars(
             node_indices,
-            name="v",
+            name="y",
             vtype=GRB.BINARY,
         )
 
@@ -100,17 +101,18 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="only one edge from root")
 
         model.addConstrs((gp.quicksum(f[i, j] for (i, j) in present_edges_with_root if j == j_n) -
-                          gp.quicksum(f[j, i] for (j, i) in present_edges_with_root if j == j_n) == v[j_n]
+                          gp.quicksum(f[j, i] for (j, i) in present_edges_with_root if j == j_n) == y[j_n]
                           for j_n in node_indices),
                           name="consume one unit")
 
-        model.addConstrs((v[n] >= 1/n * gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
+        model.addConstrs((y[n] >= 1/n * gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
                           for n in node_indices), name="be present if you receive flow")
-        model.addConstrs((v[n] <= gp.quicksum(x[i,j] + x[j,i] for (i,j) in present_edges if j == n)
+        model.addConstrs((y[n] <= gp.quicksum(x[i,j] + x[j,i] for (i,j) in present_edges if j == n)
                           for n in node_indices), name="be absent if you receive no flow")
 
         model.addConstrs((0 <= f[i,j] for (i, j) in present_edges_with_root), name="positive flow")
         model.addConstrs((f[i,j] <= k * x[i,j] for (i, j) in present_edges_with_root), name="capped flow")
+
 
     elif model._formulation == "mcf":
         present_edges_times_vertices = set((i,j,v) for (i,j) in present_edges for v in node_indices)
@@ -141,6 +143,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k-1,
                         name="take k-1 edges")
 
+
     elif model._formulation == "cec":
         pass
     elif model._formulation == "dcc":
@@ -164,7 +167,7 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     selected_edges: list[int] = []
     if model.SolCount > 0:
         for v in sorted(model.getVars(), key=lambda x: x.VarName):
-            print(v.VarName, v.X)
+            print(f"{v.VarName:<8} = {v.X}")
 
         for (i,j) in present_edges:
             x_ij = model.getVarByName(f'x[{i},{j}]')
