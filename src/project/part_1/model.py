@@ -116,29 +116,32 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
 
     elif model._formulation == "mcf":
         present_edges_times_vertices = set((i,j,v) for (i,j) in present_edges for v in node_indices)
+        edges_times_vertices_with_root = present_edges_times_vertices.union((0,j,v) for j in node_indices for v in node_indices)
 
         f = model.addVars(
-            present_edges_times_vertices.union((0,j,v) for j in node_indices for v in node_indices),
+            edges_times_vertices_with_root,
             name="f",
             vtype=GRB.BINARY,
         )
 
-        model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) == 1
+        model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) <= 1
                         for v in node_indices), name="source flow")
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="only one entry point")
 
-        model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in present_edges if v == v_n) ==
-                         1/n * gp.quicksum(x[i,v] for (i,v) in present_edges if v == v_n)
+        model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in present_edges_with_root if v == v_n) -
+                          gp.quicksum(f[v,i,v] for (v,i) in present_edges_with_root if v == v_n)>=
+                         1/n * gp.quicksum(x[i,v] for (i,v) in present_edges_with_root if v == v_n)
                          for v_n in node_indices), "consume own flow")
 
-        model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in present_edges_times_vertices if j == j_n and v == v_n) -
-                          gp.quicksum(f[j,i,v] for (i,j,v) in present_edges_times_vertices if j == j_n and v == v_n)
+        model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in edges_times_vertices_with_root if j == j_n and v == v_n) -
+                          gp.quicksum(f[j,i,v] for (j,i,v) in edges_times_vertices_with_root if j == j_n and v == v_n)
                           == 0
                           for j_n in node_indices for v_n in node_indices if v_n != j_n),
                          name="non-consumption of foreign flow")
 
-        model.addConstrs((0 <= f[i,j,v] for (i,j,v) in present_edges_times_vertices),
+        model.addConstrs((0 <= f[i,j,v] for (i,j,v) in edges_times_vertices_with_root),
                          name="positive flow")
-        model.addConstrs((f[i,j,v] <= x[i,j] for (i,j,v) in present_edges_times_vertices),
+        model.addConstrs((f[i,j,v] <= x[i,j] for (i,j,v) in edges_times_vertices_with_root),
                          name="unit flow")
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k-1,
                         name="take k-1 edges")
