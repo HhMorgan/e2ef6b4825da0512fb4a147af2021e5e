@@ -142,8 +142,11 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                          name="positive flow")
         model.addConstrs((f[i,j,v] <= x[i,j] for (i,j,v) in edges_times_vertices_with_root),
                          name="unit flow")
+
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k-1,
                         name="take k-1 edges")
+
+        model.addConstrs((x[i,j] + x[j,i] <= 1 for (i, j) in graph.edges), name="only one direction")
 
 
     elif model._formulation == "cec":
