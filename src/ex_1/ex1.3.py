@@ -39,18 +39,8 @@ def build_model(model: gp.Model, n: int, k: int):
         vtype=GRB.INTEGER,
     )
 
-    # x = model.addVars(
-    #     [(i,j) for i in range(n) for j in range(n)],
-    #     name="x",
-    #     vtype=GRB.BINARY,
-    # )
-    # r = model.addVars(
-    #     n,
-    #     name="r",
-    #     vtype=GRB.INTEGER,
-    # )
-
     m = 6 * (n-1) # maximum number of point a team can achieve in theory (winning every game)
+
     # constraints
     model.addConstrs((d[i,j,g] == d[j,i,g] for i in range(n) for j in range(n) for g in range(2)),
                      name="If game (i,j) ends in a draw, both teams receive the draw")
@@ -64,26 +54,36 @@ def build_model(model: gp.Model, n: int, k: int):
     # r constraints
     model.addConstrs((p[i] <= mu + m * (1-r[i]) for i in range(n)),
                      name="If team i has <= points than µ, it must get relegated")
-    model.addConstrs((p[i] >= mu + 1 - m * r[i] for i in range(n)),
+    model.addConstrs((p[i] >= mu - m * r[i] for i in range(n)),
                      name="If team i has > points than µ, it must not get relegated")
     model.addConstr(gp.quicksum(r[i] for i in range(n)) == k,
                     name="There must be exactly k teams that get relegated")
+
     # z constraints
-    model.addConstrs((p[i] - mu <= m * (1 - z[i]) for i in range(n)),
+    model.addConstrs((mu >= p[i] - m * (1 - z[i]) for i in range(n)),
                      name="z_i must be 1 if p_i is <= to mu")
-    model.addConstrs((p[i] - mu >= -m * (1 - z[i]) for i in range(n)),
+    model.addConstrs((mu <= p[i] + m * (1 - z[i]) for i in range(n)),
                      name="z_i must be 1 if p_i is >= to mu")
+    # gurobi alternative to the two constraints above (indicator constraint feature)
+    # model.addConstrs(
+    #     (z[i] == 1) >> (p[i] == mu)
+    #     for i in range(n)
+    # )
+    model.addConstrs((z[i] <= r[i] for i in range(n)),
+                     name="The team with points equivalent to mu must be one of the relegated ones")
     model.addConstr(gp.quicksum(z[i] for i in range(n)) >= 1,
                     name="µ must be equal to the points of at least one team")
 
-    # model.addConstrs((p[j] - p[i] <= m * (1-x[i,j]) for i in range(n) for j in range(n)),
-    #                  name="")
-    # model.addConstrs((r[j] - x[i,j] <= r[i] + 1 + m * (1-x[i,j]) for i in range(1,n) for j in range(1,n) if i != j),
-    #                  name="")
-    # model.addConstrs((1 <= r[i] for i in range(1,n)), name="")
-    # model.addConstrs((r[i] <= n-1 for i in range(1,n)), name="")
-    #
-    # model.setObjective(p[k] + 1, GRB.MAXIMIZE)
+    # debug constraints for verification purposes
+    # D1. Checks if the distribution of points and game results match
+    # model.addConstr(
+    #     gp.quicksum(p[i] for i in range(n)) ==
+    #     gp.quicksum(3 * w[i, j, g] + d[i, j, g] for i in range(n) for j in range(n) for g in range(2) if i != j),
+    #     name="TotalPointsFromGames"
+    # )
+    # D2. Sets the points of team 0 to a specific value to check if that is indeed a non-relegation guarantee
+    # model.addConstr(p[0] == 58,name="Test")
+
 
     # we want to push mu as high as possible and add 1 point to ensure non-relegation
     model.setObjective(mu + 1, GRB.MAXIMIZE)
@@ -108,6 +108,6 @@ if __name__ == "__main__":
         for v in model.getVars():
             print(f"{v.VarName} = {v.X}")
 
-    latex_table = generate_three_long_tables_per_page(model)
-    # print(latex_table)
+        latex_table = generate_three_long_tables_per_page(model)
+
     model.close()
