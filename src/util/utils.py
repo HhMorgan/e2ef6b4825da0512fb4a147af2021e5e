@@ -117,7 +117,7 @@ def generate_latex_table(model, output_file="variable_table.txt"):
 
 
 def generate_three_tables_per_page(model, vars_per_table=25, output_file="variable_table.txt"):
-    vars_list = model.getVars()
+    vars_list = sorted(model.getVars(), key=lambda v: v.VarName)
     total_vars = len(vars_list)
 
     tables = []
@@ -157,7 +157,10 @@ def generate_three_tables_per_page(model, vars_per_table=25, output_file="variab
 
 
 def generate_three_long_tables_per_page(model, vars_per_table=50, output_file="variable_table.txt"):
-    vars_list = model.getVars()
+    # Sort the variables by their variable name
+    vars_list = sorted(model.getVars(), key=lambda v: v.VarName)
+
+    # Now, total_vars would still be the same
     total_vars = len(vars_list)
 
     tables = []
@@ -195,3 +198,10 @@ def generate_three_long_tables_per_page(model, vars_per_table=50, output_file="v
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(final_output))
 
+def get_sorted_vars(model):
+    vars_list = model.getVars()
+    # Sort the variables by their variable name
+    sorted_vars = sorted(vars_list, key=lambda v: v.VarName)
+
+    # Now, total_vars would still be the same
+    return len(sorted_vars)
