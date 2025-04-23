@@ -100,5 +100,5 @@ if __name__ == "__main__":
         print(f"obj. value = {model.ObjVal}")
         for v in model.getVars():
             print(f"{v.VarName} = {v.X}")
-    latex_table = generate_three_long_tables_per_page(model)
+    latex_table = generate_three_long_tables_per_page(model, precision_digits=1)
     model.close()

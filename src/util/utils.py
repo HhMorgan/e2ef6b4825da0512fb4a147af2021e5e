@@ -156,7 +156,7 @@ def generate_three_tables_per_page(model, vars_per_table=25, output_file="variab
         f.write("\n".join(final_output))
 
 
-def generate_three_long_tables_per_page(model, vars_per_table=50, output_file="variable_table.txt"):
+def generate_three_long_tables_per_page(model, vars_per_table=50, precision_digits=3, output_file="variable_table.txt"):
     # Sort the variables by their variable name
     vars_list = sorted(model.getVars(), key=lambda v: v.VarName)
 
@@ -177,7 +177,10 @@ def generate_three_long_tables_per_page(model, vars_per_table=50, output_file="v
         for var in chunk:
             name = latex_escape(var.VarName)
             val = var.X
-            table.append(f"{name} & {val:.4f} \\\\")
+            if val == 0:
+                table.append(f"{name} & 0 \\\\")
+            else:
+                table.append(f"{name} & {val:.{precision_digits}f} \\\\")
             table.append(r"\hline")
 
         table.append(r"\end{tabular}")
@@ -192,8 +195,9 @@ def generate_three_long_tables_per_page(model, vars_per_table=50, output_file="v
             final_output.append(r"{\small")
             final_output.append(t)
             final_output.append(r"}")
-            final_output.append(r"\vspace{1em}")
-        final_output.append(r"\clearpage")
+            final_output.append(r"\vspace*{1em}")
+        if i < len(tables) - 4:
+            final_output.append(r"\clearpage")
 
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(final_output))
