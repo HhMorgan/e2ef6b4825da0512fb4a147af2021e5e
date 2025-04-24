@@ -71,16 +71,27 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
     # create model-specific variables and constraints
     if model._formulation == "seq":
         v = model.addVars(
-            node_indices,
+            range(0, len(node_indices) + 1),
             name="v",
             vtype=GRB.INTEGER,
         )
 
-        # TODO Think about how to change the x_e variable constraint to a directed formulation
-        model.addConstrs((v[i] >= 1 for i in node_indices), "positive ordering")
-        model.addConstrs((v[i] <= node_indices[-1] for i in node_indices), "integer-step ordering")
+        model.addConstrs((v[i] + x[i,j] <= v[j] + (len(node_indices) + 1) * (1 - x[i,j]) for (i,j) in present_edges),
+                         name="impose order of connected vertices")
+
         model.addConstr(v[0] == 0, "zero vertex as root node")
-        model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k, "MST with k vertices")
+        model.addConstr(gp.quicksum(x[0,j] for j in node_indices) == 1,
+                        "one vertex as root node")
+
+        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in present_edges if j == j_g) <= 1 for j_g in node_indices),
+                         "only one incoming edge")
+        model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k - 1,
+                        "MST with k vertices")
+
+        model.addConstrs((v[i] >= 1 for i in node_indices),
+                         "positive ordering")
+        model.addConstrs((v[i] <= len(node_indices) for i in node_indices),
+                         "integer-step ordering")
 
 
     elif model._formulation == "scf":
