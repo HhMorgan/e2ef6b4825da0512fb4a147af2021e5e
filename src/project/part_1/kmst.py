@@ -26,7 +26,14 @@ if __name__ == "__main__":
     model_name = f"{inst}_{args.k}_{args.formulation}"
 
     G: nx.Graph = read_instance(args.instance)
-    # hint: use a directed graph in your formulations! add an artificial root node!
+
+    # guard clauses for nonsensical inputs
+    if args.k < 0:
+        sys.exit(f"Cannot return a subgraph with a negative number of vertices! Received k = {args.k}")
+    elif args.k == 0:
+        sys.exit("Trivial solution: The empty set is a minimal subtree of G with 0 vertices.")
+    elif args.k == 1:
+        sys.exit("Trivial solution: Take any vertex of G for a minimum subtree with just 1 vertex.")
 
     # context handlers take care of disposing resources correctly
     with gp.Model(model_name) as model:

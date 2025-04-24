@@ -76,21 +76,23 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
             vtype=GRB.INTEGER,
         )
 
-        model.addConstrs((v[i] + x[i,j] <= v[j] + (len(node_indices) + 1) * (1 - x[i,j]) for (i,j) in present_edges),
-                         name="impose order of connected vertices")
+        model.addConstrs((v[i] + x[i,j] <= v[j] + (len(node_indices) + 1) * (1 - x[i,j])
+                          for (i,j) in present_edges),
+                          "impose order of connected vertices")
 
         model.addConstr(v[0] == 0, "zero vertex as root node")
         model.addConstr(gp.quicksum(x[0,j] for j in node_indices) == 1,
                         "one vertex as root node")
 
-        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in present_edges if j == j_g) <= 1 for j_g in node_indices),
+        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in present_edges if j == j_g) <= 1
+                          for j_g in node_indices),
                          "only one incoming edge")
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k - 1,
                         "MST with k vertices")
 
         model.addConstrs((v[i] >= 1 for i in node_indices),
                          "positive ordering")
-        model.addConstrs((v[i] <= len(node_indices) for i in node_indices),
+        model.addConstrs((v[i] <= k for i in node_indices),
                          "integer-step ordering")
 
 
@@ -116,12 +118,18 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                           name="consume one unit")
 
         model.addConstrs((y[n] >= 1/len(node_indices) * gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
-                          for n in node_indices), name="be present if you receive flow")
+                          for n in node_indices),
+                          name="be present if you receive flow")
         model.addConstrs((y[n] <= gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == n)
-                          for n in node_indices), name="be absent if you receive no flow")
+                          for n in node_indices),
+                          name="be absent if you receive no flow")
 
-        model.addConstrs((0 <= f[i,j] for (i, j) in present_edges_with_root), name="positive flow")
-        model.addConstrs((f[i,j] <= k * x[i,j] for (i, j) in present_edges_with_root), name="capped flow")
+        model.addConstrs((0 <= f[i,j]
+                          for (i, j) in present_edges_with_root),
+                          name="positive flow")
+        model.addConstrs((f[i,j] <= k * x[i,j]
+                          for (i, j) in present_edges_with_root),
+                         name="capped flow")
 
 
     elif model._formulation == "mcf":
@@ -149,15 +157,19 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                           for j_n in node_indices for v_n in node_indices if v_n != j_n),
                          name="non-consumption of foreign flow")
 
-        model.addConstrs((0 <= f[i,j,v] for (i,j,v) in edges_times_vertices_with_root),
-                         name="positive flow")
-        model.addConstrs((f[i,j,v] <= x[i,j] for (i,j,v) in edges_times_vertices_with_root),
-                         name="unit flow")
+        model.addConstrs((0 <= f[i,j,v]
+                          for (i,j,v) in edges_times_vertices_with_root),
+                          name="positive flow")
+        model.addConstrs((f[i,j,v] <= x[i,j]
+                          for (i,j,v) in edges_times_vertices_with_root),
+                          name="unit flow")
 
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k-1,
                         name="take k-1 edges")
 
-        model.addConstrs((x[i,j] + x[j,i] <= 1 for (i, j) in graph.edges), name="only one direction")
+        model.addConstrs((x[i,j] + x[j,i] <= 1
+                          for (i, j) in graph.edges),
+                         name="only one direction")
 
 
     elif model._formulation == "cec":
