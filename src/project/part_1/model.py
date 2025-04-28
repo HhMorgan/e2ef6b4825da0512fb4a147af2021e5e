@@ -2,6 +2,7 @@ import gurobipy as gp
 from gurobipy import GRB
 import networkx as nx
 
+
 def lazy_constraint_callback(model: gp.Model, where):
     # note: you'll need to account for tolerances!
     # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/concepts/modeling/tolerances.html
@@ -76,7 +77,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
             vtype=GRB.INTEGER,
         )
 
-        model.addConstrs((v[i] + x[i,j] <= v[j] + (len(node_indices) + 1) * (1 - x[i,j])
+        model.addConstrs((v[i] + x[i,j] <= v[j] + len(node_indices) * (1 - x[i,j])
                           for (i,j) in present_edges),
                           "impose order of connected vertices")
 

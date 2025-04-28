@@ -1,14 +1,16 @@
 [project]
-name = "mathprog-ex1"
+name = "project"
 version = "1.0.0"
-description = "Code template for Mathematical Programming, exercise sheet 1"
+description = "Implementation of the exercises and project for Mathematical Programming at TU Wien."
 readme = "README.md"
 authors = [
-    { name = "Georg Brandstätter", email = "georg.brandstaetter@tuwien.ac.at" }
+    { name = "Johannes Riedmann", email = "e52109935@student.tuwien.ac.at" },
+    { name = "Hesham Morgan", email = "e12241537@student.tuwien.ac.at" }
 ]
 requires-python = ">=3.12"
 dependencies = [
     "gurobipy>=12.0.1",
+    "matplotlib>=3.10.1",
     "networkx>=3.4.2",
     "numpy>=2.2.4",
 ]

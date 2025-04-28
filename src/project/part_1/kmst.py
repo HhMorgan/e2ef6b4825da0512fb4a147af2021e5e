@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import networkx as nx
 import sys
+import matplotlib.pyplot as plt
 
 from model import create_model, lazy_constraint_callback, get_selected_edge_ids
 from util import read_instance, write_solution
@@ -19,6 +20,7 @@ if __name__ == "__main__":
     parser.add_argument("--threads", type=int, default=1, help="maximum number of threads to use")
     parser.add_argument("--timelimit", type=int, default=3600, help="time limit (in seconds)")
     parser.add_argument("--memorylimit", type=float, default=8, help="memory limit (in GB)")
+    parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
     args = parser.parse_args()
 
 
@@ -92,7 +94,10 @@ if __name__ == "__main__":
             print(f"{nx.number_connected_components(k_mst)=}")
         else:
             print("k-MST is valid")
-            
+
+        if args.show:
+            nx.draw(k_mst, with_labels=True)
+            plt.show()
 
         # print statistics
         results = {
