@@ -52,9 +52,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
     present_edges = reversed_edges.union(set(graph.edges))  # edges in graph and their inverted counterpart
     present_edges_with_root = present_edges.union((0, j) for j in node_indices)
 
-    # create common variables
-    # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.addVars
-
+    # common variables
     x = model.addVars(
         present_edges_with_root,
         name="x",
@@ -62,12 +60,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
     )
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
-    model._x = x
-
-
-    # create common constraints
-    # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.addConstr
-
+    # model._x = x
 
     # create model-specific variables and constraints
     if model._formulation == "seq":
@@ -76,24 +69,32 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
             name="v",
             vtype=GRB.INTEGER,
         )
+        y = model.addVars(
+            range(1, len(node_indices) + 1),
+            name="y",
+            vtype=GRB.BINARY,
+        )
 
-        model.addConstrs((v[i] + x[i,j] <= v[j] + len(node_indices) * (1 - x[i,j])
-                          for (i,j) in present_edges),
+        model.addConstrs((v[i] + x[i,j] <= v[j] + k * (1 - x[i,j])
+                          for (i,j) in present_edges_with_root),
                           "impose order of connected vertices")
+        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in present_edges_with_root if j == j_g) == y[j_g]
+                          for j_g in node_indices),
+                         "only one incoming edge")
+        model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in present_edges),
+                         "edge implies vertices")
 
+        # constraints for root node 0
         model.addConstr(v[0] == 0, "zero vertex as root node")
         model.addConstr(gp.quicksum(x[0,j] for j in node_indices) == 1,
                         "one vertex as root node")
 
-        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in present_edges if j == j_g) <= 1
-                          for j_g in node_indices),
-                         "only one incoming edge")
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in present_edges) == k - 1,
-                        "MST with k vertices")
-
-        model.addConstrs((v[i] >= 1 for i in node_indices),
+                        "MST with k-1 edges")
+        # define restricted interval for order variable
+        model.addConstrs((v[i] >= y[i] for i in node_indices),
                          "positive ordering")
-        model.addConstrs((v[i] <= k for i in node_indices),
+        model.addConstrs((v[i] <= k * y[i] for i in node_indices),
                          "integer-step ordering")
 
 
