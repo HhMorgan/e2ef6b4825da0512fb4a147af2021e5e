@@ -5,3 +5,4 @@
 *.pyc
 variable_table.txt
 *.lp
+*.csv

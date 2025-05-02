@@ -1,6 +1,7 @@
 import argparse
 import gurobipy as gp
-import json
+import csv
+import os
 from pathlib import Path
 import networkx as nx
 import sys
@@ -9,21 +10,8 @@ import matplotlib.pyplot as plt
 from model import create_model, lazy_constraint_callback, get_selected_edge_ids
 from util import read_instance, write_solution
 
-if __name__ == "__main__":
-    # parse command line arguments
-    parser = argparse.ArgumentParser(description="ILP-based k-MST solver")
-    parser.add_argument("--instance", type=str, required=True, help="path to instance file")
-    parser.add_argument("-k", type=int, required=True, help="instance parameter k")
-    parser.add_argument("--formulation", required=True, choices=["seq", "scf", "mcf", "cec", "dcc"])
-    parser.add_argument("--results-file", type=str, help="path to results file")
-    parser.add_argument("--solution-file", type=str, help="path to solution file")
-    parser.add_argument("--threads", type=int, default=1, help="maximum number of threads to use")
-    parser.add_argument("--timelimit", type=int, default=3600, help="time limit (in seconds)")
-    parser.add_argument("--memorylimit", type=float, default=8, help="memory limit (in GB)")
-    parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
-    args = parser.parse_args()
 
-
+def execute_lp(args):
     inst = Path(args.instance).stem
     model_name = f"{inst}_{args.k}_{args.formulation}"
 
@@ -101,7 +89,8 @@ if __name__ == "__main__":
 
         # print statistics
         results = {
-            "instance": args.instance,
+            "run": args.run_name,
+            "instance": os.path.basename(args.instance),
             "k": args.k,
             "formulation": args.formulation,
             "status": model.Status,
@@ -111,11 +100,30 @@ if __name__ == "__main__":
             "runtime": round(model.runtime, 3),
             "n_nodes": round(model.NodeCount)
         }
-        print(results)
+
         if args.results_file:
-            with open(args.results_file, "w", encoding="utf-8") as f:
-                json.dump(results, f)
+            with open(args.results_file, "a", encoding="utf-8", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(results.values())
 
         if args.solution_file:
             write_solution(args.solution_file, get_selected_edge_ids(model))
             pass
+
+
+if __name__ == "__main__":
+    # parse command line arguments
+    parser = argparse.ArgumentParser(description="ILP-based k-MST solver")
+    parser.add_argument("--run-name", type=str, required=False, help="title of the current run")
+    parser.add_argument("--instance", type=str, required=True, help="path to instance file")
+    parser.add_argument("-k", type=int, required=True, help="instance parameter k")
+    parser.add_argument("--formulation", required=True, choices=["seq", "scf", "mcf", "cec", "dcc"])
+    parser.add_argument("--results-file", type=str, help="path to results file")
+    parser.add_argument("--solution-file", type=str, help="path to solution file")
+    parser.add_argument("--threads", type=int, default=1, help="maximum number of threads to use")
+    parser.add_argument("--timelimit", type=int, default=3600, help="time limit (in seconds)")
+    parser.add_argument("--memorylimit", type=float, default=8, help="memory limit (in GB)")
+    parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
+    args = parser.parse_args()
+
+    execute_lp(args)

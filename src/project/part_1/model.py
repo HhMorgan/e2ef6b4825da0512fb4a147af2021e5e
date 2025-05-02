@@ -194,8 +194,8 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
 
     selected_edges: list[int] = []
     if model.SolCount > 0:
-        for v in sorted(model.getVars(), key=lambda x: x.VarName):
-            print(f"{v.VarName:<8} = {v.X}")
+        # for v in sorted(model.getVars(), key=lambda x: x.VarName):
+        #     print(f"{v.VarName:<8} = {v.X}")
 
         for (i,j) in arcs:
             x_ij = model.getVarByName(f'x[{i},{j}]')
@@ -204,7 +204,8 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
                 edge_id: int = int(graph.edges[i,j]['id'])
                 selected_edges.append(edge_id)
     else:
-        for v in sorted(model.getVars(), key=lambda x: x.VarName):
-            print(v.VarName)
+        # for v in sorted(model.getVars(), key=lambda x: x.VarName):
+        #     print(v.VarName)
+        pass
 
     return selected_edges
