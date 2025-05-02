@@ -77,25 +77,25 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
 
         model.addConstrs((v[i] + x[i,j] <= v[j] + k * (1 - x[i,j])
                           for (i,j) in arcs_with_zero),
-                          "impose order of connected vertices")
+                          "impose_order")
         model.addConstrs((gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == j_g) == y[j_g]
                           for j_g in node_indices),
-                         "only one incoming edge")
+                         "one_incoming_edge")
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
-                         "edge implies vertices")
+                         "edge_implies_vertices")
 
         # constraints for root node 0
-        model.addConstr(v[0] == 0, "zero vertex as root node")
+        model.addConstr(v[0] == 0, "zero_is_root")
         model.addConstr(gp.quicksum(x[0,j] for j in node_indices) == 1,
-                        "one vertex as root node")
+                        "one_entrypoint")
 
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in arcs) == k - 1,
-                        "MST with k-1 edges")
+                        "k_vertices")
         # define restricted interval for order variable
         model.addConstrs((v[i] >= y[i] for i in node_indices),
-                         "positive ordering")
+                         "positive_ordering")
         model.addConstrs((v[i] <= k * y[i] for i in node_indices),
-                         "integer-step ordering")
+                         "integer-step_ordering")
 
 
     elif model._formulation == "scf":
@@ -111,27 +111,27 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
             vtype=GRB.INTEGER,
         )
 
-        model.addConstr(gp.quicksum(f[0, j] for j in node_indices) == k, name="source flow")
-        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="only one edge from root")
+        model.addConstr(gp.quicksum(f[0, j] for j in node_indices) == k, name="source_flow")
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
         model.addConstrs((gp.quicksum(f[i, j] for (i, j) in arcs_with_zero if j == j_n) -
                           gp.quicksum(f[j, i] for (j, i) in arcs_with_zero if j == j_n) == y[j_n]
                           for j_n in node_indices),
-                          name="consume one unit")
+                          name="consume_one_unit")
 
         model.addConstrs((y[n] >= 1/len(node_indices) * gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == n)
                           for n in node_indices),
-                          name="be present if you receive flow")
+                          name="flow_inclusion")
         model.addConstrs((y[n] <= gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == n)
                           for n in node_indices),
-                          name="be absent if you receive no flow")
+                          name="flow_exclusion")
 
         model.addConstrs((0 <= f[i,j]
                           for (i, j) in arcs_with_zero),
-                          name="positive flow")
+                          name="positive_flow")
         model.addConstrs((f[i,j] <= k * x[i,j]
                           for (i, j) in arcs_with_zero),
-                         name="capped flow")
+                         name="capped_flow")
 
 
     elif model._formulation == "mcf":
@@ -145,33 +145,33 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         )
 
         model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) <= 1
-                        for v in node_indices), name="source flow")
-        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="only one entry point")
+                        for v in node_indices), name="source_flow")
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_entry_point")
 
         model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in arcs_with_zero if v == v_n) -
                           gp.quicksum(f[v,i,v] for (v,i) in arcs_with_zero if v == v_n)>=
                          1/len(node_indices) * gp.quicksum(x[i,v] for (i,v) in arcs_with_zero if v == v_n)
-                         for v_n in node_indices), "consume own flow")
+                         for v_n in node_indices), "consume_own_flow")
 
         model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in arcs_times_vertices_with_zero if j == j_n and v == v_n) -
                           gp.quicksum(f[j,i,v] for (j,i,v) in arcs_times_vertices_with_zero if j == j_n and v == v_n)
                           == 0
                           for j_n in node_indices for v_n in node_indices if v_n != j_n),
-                         name="non-consumption of foreign flow")
+                         name="non-consumption_foreign_flow")
 
         model.addConstrs((0 <= f[i,j,v]
                           for (i,j,v) in arcs_times_vertices_with_zero),
-                          name="positive flow")
+                          name="positive_flow")
         model.addConstrs((f[i,j,v] <= x[i,j]
                           for (i,j,v) in arcs_times_vertices_with_zero),
-                          name="unit flow")
+                          name="unit_flow")
 
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in arcs) == k-1,
-                        name="take k-1 edges")
+                        name="take_k_edges")
 
         model.addConstrs((x[i,j] + x[j,i] <= 1
                           for (i, j) in graph.edges),
-                         name="only one direction")
+                         name="only_one_direction")
 
 
     elif model._formulation == "cec":
