@@ -203,9 +203,8 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
             if x_ij.X == 1:
                 edge_id: int = int(graph.edges[i,j]['id'])
                 selected_edges.append(edge_id)
-    else:
-        # for v in sorted(model.getVars(), key=lambda x: x.VarName):
-        #     print(v.VarName)
-        pass
+    # else:
+    #     for v in sorted(model.getVars(), key=lambda x: x.VarName):
+    #         print(v.VarName)
 
     return selected_edges

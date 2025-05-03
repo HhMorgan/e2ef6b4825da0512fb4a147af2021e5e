@@ -1,31 +1,34 @@
 import math
 import os
+import sys
+import argparse
 from kmst import execute_lp
 
-class Arguments:
-    instance = ""
-    k = 1
-    formulation = ""
-    memorylimit = 8
-    threads = 1
-    timelimit = 3600
-    show = False
-    results_file = ""
-    solution_file = ""
-    run_name = ""
+class GurobiArguments:
+    instance: str = ""
+    k: int = 1
+    formulation: str = ""
+    memory_limit: int = 8
+    threads: int = 1
+    timelimit: int = 3600
+    show: bool = False
+    results_file: str = ""
+    solution_file: str = ""
+    run_name: str = ""
+
+    def __init__(self, memory_limit: int, threads: int, timeout_seconds: int):
+        self.memory_limit = memory_limit
+        self.threads = threads
+        self.timelimit = timeout_seconds
 
 
 def run_jobs(instance_dir: str, results_file: str):
     k_factors = [0.2, 0.5]
     formulations = ['seq', 'scf', 'mcf']
 
-    args = Arguments()
-    args.memorylimit = 8
-    args.threads = 1
-    args.timelimit = 3600
+    args = GurobiArguments(8, 1, 3600)
     args.show = False
     args.results_file = results_file
-    args.solution_file = ""
 
     for filename in os.listdir(instance_dir):
         filepath = os.path.join(instance_dir, filename)
@@ -33,26 +36,41 @@ def run_jobs(instance_dir: str, results_file: str):
         args.instance = filepath
 
         if os.path.isfile(filepath):
+            # determine total number of vertices in instance
+            vertex_count: int = 0
             with open(filepath, 'r') as instance:
                 first_line = instance.readline()
-                num_vertices = int(first_line)
+                vertex_count = int(first_line)
 
-                for factor in k_factors:
-                    args.k = math.ceil(factor * num_vertices)
+            # loop over k values
+            for factor in k_factors:
+                args.k = math.ceil(factor * vertex_count)
+                # loop over formulations
+                for formulation in formulations:
+                    args.formulation = formulation
+                    args.run_name = f'{filename}_{factor}_{formulation}'
 
-                    for formulation in formulations:
-                        args.formulation = formulation
-                        args.run_name = f'{filename}_{factor}_{formulation}'
-
-                        execute_lp(args)
+                    execute_lp(args)
 
 
 if __name__ == '__main__':
-    instance_directory = "instances/project"
-    results_file = "results.csv"
+    parser = argparse.ArgumentParser(description="Benchmarking procedure of ILP formulations for a k-MST")
+    parser.add_argument("--instances", type=str, default="./instances/project", help="path to instance directory")
+    parser.add_argument("--results", type=str, default="./results.csv", help="path to results file")
+    args = parser.parse_args()
 
-    with open(results_file, "w", encoding="utf-8", newline='') as f:
+    # quick checks of the given paths
+    if not os.path.exists(args.instances):
+        sys.exit(f"Could not find instances directory '{os.path.abspath(args.instances)}'.")
+    if not os.path.isdir(args.instances):
+        sys.exit(f"Instances path is not a directory! Path: '{os.path.abspath(args.instances)}'")
+
+    if os.path.isdir(args.results):
+        sys.exit("Given path for results file refers to a directory!")
+
+
+    with open(args.results, "w", encoding="utf-8", newline='') as f:
         header = "run,instance,k,formulation,status,objective_value,best_bound,gap,runtime,n_nodes"
         f.write(header + "\n")
 
-    run_jobs(instance_directory, results_file)
+    run_jobs(args.instances, args.results)

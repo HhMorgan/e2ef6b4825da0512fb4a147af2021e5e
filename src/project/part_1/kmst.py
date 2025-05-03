@@ -1,7 +1,6 @@
 import argparse
 import gurobipy as gp
 import csv
-import os
 from pathlib import Path
 import networkx as nx
 import sys
@@ -40,15 +39,15 @@ def execute_lp(args):
             sys.exit(f"Error: Your formulation for '{args.formulation}' is non-linear.")
 
         # write model to file in readable format (useful for debugging)
-        model.write("model.lp")
+        # model.write("model.lp")
 
         # set thread, time and memory limit
         if args.threads:
             model.Params.Threads = args.threads
         if args.timelimit:
             model.Params.TimeLimit = args.timelimit
-        if args.memorylimit:
-            model.Params.SoftMemLimit = args.memorylimit
+        if args.memory_limit:
+            model.Params.SoftMemLimit = args.memory_limit
 
         # tell Gurobi that the model is not complete for CEC and DCC formulations (needs to be considered in presolving)
         if args.formulation in {"cec", "dcc"}:
@@ -90,7 +89,7 @@ def execute_lp(args):
         # print statistics
         results = {
             "run": args.run_name,
-            "instance": os.path.basename(args.instance),
+            "instance": Path(args.instance).stem,
             "k": args.k,
             "formulation": args.formulation,
             "status": model.Status,
@@ -102,13 +101,13 @@ def execute_lp(args):
         }
 
         if args.results_file:
+            # write the benchmarking results to the given output file in CSV format
             with open(args.results_file, "a", encoding="utf-8", newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(results.values())
 
         if args.solution_file:
-            write_solution(args.solution_file, get_selected_edge_ids(model))
-            pass
+            write_solution(args.solution_file, get_selected_edge_ids(model, G))
 
 
 if __name__ == "__main__":
@@ -122,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--solution-file", type=str, help="path to solution file")
     parser.add_argument("--threads", type=int, default=1, help="maximum number of threads to use")
     parser.add_argument("--timelimit", type=int, default=3600, help="time limit (in seconds)")
-    parser.add_argument("--memorylimit", type=float, default=8, help="memory limit (in GB)")
+    parser.add_argument("--memory-limit", type=float, default=8, help="memory limit (in GB)")
     parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
     args = parser.parse_args()
 
