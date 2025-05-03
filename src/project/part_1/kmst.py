@@ -1,10 +1,12 @@
 import argparse
-import gurobipy as gp
 import csv
-from pathlib import Path
-import networkx as nx
+import os
 import sys
+from pathlib import Path
+
+import gurobipy as gp
 import matplotlib.pyplot as plt
+import networkx as nx
 
 from model import create_model, lazy_constraint_callback, get_selected_edge_ids
 from util import read_instance, write_solution
@@ -66,7 +68,6 @@ def execute_lp(args):
 
         model.printStats()
 
-
         # check solution feasibility
         selected_edges = set(get_selected_edge_ids(model, G))
         k_mst = G.edge_subgraph(edge for edge in G.edges if G.edges[edge]["id"] in selected_edges)
@@ -82,27 +83,32 @@ def execute_lp(args):
         else:
             print("k-MST is valid")
 
+        # draw graph for debugging purposes
         if args.show:
             nx.draw(k_mst, with_labels=True)
             plt.show()
 
-        # print statistics
+        # collect statistics
         results = {
-            "run": args.run_name,
+            "name": args.run_name,
             "instance": Path(args.instance).stem,
             "k": args.k,
-            "formulation": args.formulation,
+            "formulation": args.formulation.upper(),
             "status": model.Status,
-            "objective_value": model.ObjVal,
-            "best_bound": model.ObjBound,
+            "objVal": model.ObjVal,
+            "bestBound": model.ObjBound,
             "gap": round(model.MIPGap, 4),
             "runtime": round(model.runtime, 3),
-            "n_nodes": round(model.NodeCount)
+            "n": round(model.NodeCount)
         }
 
         if args.results_file:
-            # write the benchmarking results to the given output file in CSV format
             with open(args.results_file, "a", encoding="utf-8", newline='') as f:
+                # if results file is empty, start with the CSV header
+                if os.stat(args.results_file).st_size == 0:
+                    header = ",".join(results.keys())
+                    f.write(header + "\n")
+                # write the benchmarking results to the given output file in CSV format
                 writer = csv.writer(f)
                 writer.writerow(results.values())
 

@@ -2,6 +2,7 @@ import math
 import os
 import sys
 import argparse
+from pathlib import Path
 from kmst import execute_lp
 
 class GurobiArguments:
@@ -37,7 +38,6 @@ def run_jobs(instance_dir: str, results_file: str):
 
         if os.path.isfile(filepath):
             # determine total number of vertices in instance
-            vertex_count: int = 0
             with open(filepath, 'r') as instance:
                 first_line = instance.readline()
                 vertex_count = int(first_line)
@@ -48,7 +48,7 @@ def run_jobs(instance_dir: str, results_file: str):
                 # loop over formulations
                 for formulation in formulations:
                     args.formulation = formulation
-                    args.run_name = f'{filename}_{factor}_{formulation}'
+                    args.run_name = f'{Path(filepath).stem}:{factor}:{formulation}'
 
                     execute_lp(args)
 
@@ -68,9 +68,6 @@ if __name__ == '__main__':
     if os.path.isdir(args.results):
         sys.exit("Given path for results file refers to a directory!")
 
-
-    with open(args.results, "w", encoding="utf-8", newline='') as f:
-        header = "run,instance,k,formulation,status,objective_value,best_bound,gap,runtime,n_nodes"
-        f.write(header + "\n")
+    open(args.results, 'w').close() # clear current file contents
 
     run_jobs(args.instances, args.results)
