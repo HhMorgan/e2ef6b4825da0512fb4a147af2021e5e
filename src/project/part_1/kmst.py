@@ -7,6 +7,7 @@ from pathlib import Path
 import gurobipy as gp
 import matplotlib.pyplot as plt
 import networkx as nx
+from gurobipy._statusconst import StatusConstClass as SC
 
 from model import create_model, lazy_constraint_callback, get_selected_edge_ids
 from util import read_instance, write_solution
@@ -88,21 +89,25 @@ def execute_lp(args):
             nx.draw(k_mst, with_labels=True)
             plt.show()
 
-        # collect statistics
-        results = {
-            "name": args.run_name,
-            "instance": Path(args.instance).stem,
-            "k": args.k,
-            "formulation": args.formulation.upper(),
-            "status": model.Status,
-            "objVal": model.ObjVal,
-            "bestBound": model.ObjBound,
-            "gap": round(model.MIPGap, 4),
-            "runtime": round(model.runtime, 3),
-            "n": round(model.NodeCount)
-        }
-
         if args.results_file:
+            # create dict from gurobi status codes
+            # taken from: https://support.gurobi.com/hc/en-us/community/posts/360047967872/comments/360012141411
+            status_names = {SC.__dict__[k]: k for k in SC.__dict__.keys() if 'A' <= k[0] <= 'Z'}
+
+            # collect statistics
+            results = {
+                "name": args.run_name,
+                "instance": Path(args.instance).stem,
+                "k": args.k,
+                "formulation": args.formulation.upper(),
+                "status": status_names[model.Status],
+                "objVal": model.ObjVal,
+                "bestBound": model.ObjBound,
+                "gap": round(model.MIPGap, 4),
+                "runtime": round(model.runtime, 3),
+                "n": round(model.NodeCount)
+            }
+
             with open(args.results_file, "a", encoding="utf-8", newline='') as f:
                 # if results file is empty, start with the CSV header
                 if os.stat(args.results_file).st_size == 0:
