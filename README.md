@@ -1,6 +1,6 @@
-# Mathematical Programming, Exercise Sheet 1 Python Framework
+# e2ef6b4825da0512fb4a147af2021e5e
 
-This framework is provided to help you get started with implementing the models on the first exercise sheet. Feel free to alter the code as you see fit.
+This framework is provided to help you implement the models on the first exercise sheet. Feel free to alter the code as you see fit.
 
 It uses Python 3.12 and Gurobi 12 (via `gurobipy`).
 
