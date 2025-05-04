@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import gurobipy as gp
+from gurobipy import GRB
 import matplotlib.pyplot as plt
 import networkx as nx
 from gurobipy._statusconst import StatusConstClass as SC
@@ -73,16 +74,19 @@ def execute_lp(args):
         selected_edges = set(get_selected_edge_ids(model, G))
         k_mst = G.edge_subgraph(edge for edge in G.edges if G.edges[edge]["id"] in selected_edges)
 
-        if k_mst.number_of_nodes() == 0:
-            sys.exit("Error: Received an empty subgraph.")
-        if not nx.is_tree(k_mst):
-            print("Error: the provided solution is not a tree!")
-            print(f"{k_mst.number_of_nodes()=}")
-            print(f"{k_mst.number_of_edges()=}")
-            print(f"{nx.is_tree(k_mst)=}")
-            print(f"{nx.number_connected_components(k_mst)=}")
+        if model.Status == GRB.Status.OPTIMAL or model.Status == GRB.Status.SUBOPTIMAL:
+            if k_mst.number_of_nodes() == 0:
+                sys.exit("Error: Received an empty subgraph.")
+            if not nx.is_tree(k_mst):
+                print("Error: the provided solution is not a tree!")
+                print(f"{k_mst.number_of_nodes()=}")
+                print(f"{k_mst.number_of_edges()=}")
+                print(f"{nx.is_tree(k_mst)=}")
+                print(f"{nx.number_connected_components(k_mst)=}")
+            else:
+                print("k-MST is valid")
         else:
-            print("k-MST is valid")
+            print("Optimization aborted.")
 
         # draw graph for debugging purposes
         if args.show:
@@ -104,7 +108,7 @@ def execute_lp(args):
                 "objVal": model.ObjVal,
                 "bestBound": model.ObjBound,
                 "gap": round(model.MIPGap, 4),
-                "runtime": round(model.runtime, 3),
+                "runtime": f"{min(model.runtime, model.Params.TimeLimit):.3f}",
                 "n": round(model.NodeCount)
             }
 
