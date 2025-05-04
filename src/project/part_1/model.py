@@ -72,7 +72,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         v = model.addVars(
             range(0, len(node_indices) + 1),
             name="v",
-            vtype=GRB.INTEGER,
+            vtype=GRB.CONTINUOUS,
         )
 
         model.addConstrs((v[i] + x[i,j] <= v[j] + k * (1 - x[i,j])
@@ -102,7 +102,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         f = model.addVars(
             arcs_with_zero,
             name="f",
-            vtype=GRB.INTEGER,
+            vtype=GRB.CONTINUOUS,
         )
 
         model.addConstr(gp.quicksum(f[0, j] for j in node_indices) == k, name="source_flow")
@@ -135,7 +135,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         f = model.addVars(
             arcs_times_vertices_with_zero,
             name="f",
-            vtype=GRB.BINARY,
+            vtype=GRB.CONTINUOUS,
         )
 
         model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) <= y[v]
