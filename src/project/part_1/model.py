@@ -58,6 +58,11 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         name="x",
         vtype=GRB.BINARY
     )
+    y = model.addVars(
+        node_indices,
+        name="y",
+        vtype=GRB.BINARY,
+    )
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
     # model._x = x
@@ -68,11 +73,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
             range(0, len(node_indices) + 1),
             name="v",
             vtype=GRB.INTEGER,
-        )
-        y = model.addVars(
-            range(1, len(node_indices) + 1),
-            name="y",
-            vtype=GRB.BINARY,
         )
 
         model.addConstrs((v[i] + x[i,j] <= v[j] + k * (1 - x[i,j])
@@ -99,12 +99,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
 
 
     elif model._formulation == "scf":
-        y = model.addVars(
-            node_indices,
-            name="y",
-            vtype=GRB.BINARY,
-        )
-
         f = model.addVars(
             arcs_with_zero,
             name="f",
@@ -144,13 +138,12 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
             vtype=GRB.BINARY,
         )
 
-        model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) <= 1
+        model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) <= y[v]
                         for v in node_indices), name="source_flow")
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_entry_point")
 
         model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in arcs_with_zero if v == v_n) -
-                          gp.quicksum(f[v,i,v] for (v,i) in arcs_with_zero if v == v_n)>=
-                         1/len(node_indices) * gp.quicksum(x[i,v] for (i,v) in arcs_with_zero if v == v_n)
+                          gp.quicksum(f[v,i,v] for (v,i) in arcs_with_zero if v == v_n) == y[v_n]
                          for v_n in node_indices), "consume_own_flow")
 
         model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in arcs_times_vertices_with_zero if j == j_n and v == v_n) -
@@ -158,6 +151,13 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                           == 0
                           for j_n in node_indices for v_n in node_indices if v_n != j_n),
                          name="non-consumption_foreign_flow")
+
+        model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
+                         "edge_implies_vertices")
+
+        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == j_g) == y[j_g]
+                          for j_g in node_indices),
+                         "one_incoming_edge")
 
         model.addConstrs((0 <= f[i,j,v]
                           for (i,j,v) in arcs_times_vertices_with_zero),
@@ -168,10 +168,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
 
         model.addConstr(gp.quicksum(x[i,j] for (i,j) in arcs) == k-1,
                         name="take_k_edges")
-
-        model.addConstrs((x[i,j] + x[j,i] <= 1
-                          for (i, j) in graph.edges),
-                         name="only_one_direction")
 
 
     elif model._formulation == "cec":
