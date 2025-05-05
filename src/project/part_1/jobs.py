@@ -23,9 +23,13 @@ class GurobiArguments:
         self.timelimit = timeout_seconds
 
 
-def run_jobs(instance_dir: str, results_file: str):
+def run_jobs(instance_dir: str, results_file: str, *, specific_formulation: str = None):
     k_factors = [0.2, 0.5]
-    formulations = ['seq', 'scf', 'mcf']
+
+    if specific_formulation:
+        formulations = [specific_formulation]
+    else:
+        formulations = ['seq', 'scf', 'mcf']
 
     args = GurobiArguments(8, 1, 3600)
     args.show = False
@@ -57,7 +61,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Benchmarking procedure of ILP formulations for a k-MST")
     parser.add_argument("--instances", type=str, default="./instances/project", help="path to instance directory")
     parser.add_argument("--results", type=str, default="./results.csv", help="path to results file")
+    parser.add_argument("--formulation", type=str, choices=["seq", "scf", "mcf", "cec", "dcc"], help="choose a specific formulation")
     args = parser.parse_args()
+
+    # if a specific formulation was chosen, append that formulation to the results file name
+    if args.formulation:
+        args.results = args.results.replace(".csv", f"_{args.formulation}.csv")
 
     # quick checks of the given paths
     if not os.path.exists(args.instances):
@@ -70,4 +79,4 @@ if __name__ == '__main__':
 
     open(args.results, 'w').close() # clear current file contents
 
-    run_jobs(args.instances, args.results)
+    run_jobs(args.instances, args.results, specific_formulation=args.formulation)
