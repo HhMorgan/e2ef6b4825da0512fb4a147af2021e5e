@@ -2,6 +2,7 @@ import argparse
 import csv
 import os
 import sys
+import datetime
 from pathlib import Path
 
 import gurobipy as gp
@@ -13,6 +14,10 @@ from gurobipy._statusconst import StatusConstClass as SC
 from model import create_model, lazy_constraint_callback, get_selected_edge_ids
 from util import read_instance, write_solution
 
+
+def log(message: str) -> None:
+    current_time = datetime.datetime.now().time()
+    print(f"[{current_time.isoformat(timespec="seconds")}]: {message}")
 
 def execute_lp(args):
     inst = Path(args.instance).stem
@@ -34,6 +39,17 @@ def execute_lp(args):
         model._k = args.k
         model._formulation = args.formulation
 
+        print("-" * 40)
+        # some parameters to control Gurobi's output and other aspects in the solution process
+        # feel free to change them / add new ones as you see fit
+        # (see https://docs.gurobi.com/projects/optimizer/en/current/concepts/parameters.html)
+        # model.Params.MIPFocus = 2
+        # model.Params.OutputFlag = 0   # hide verbose gurobi output
+        model.Params.LogToConsole = 0   # hide verbose gurobi output
+        model.Params.LogFile = "gurobi.log"
+
+
+        log(f"Building model [{model_name}] now...")
         create_model(model, G, args.k)
         model.update()
 
@@ -57,12 +73,7 @@ def execute_lp(args):
         if args.formulation in {"cec", "dcc"}:
             model.Params.LazyConstraints = 1
 
-        # some parameters to control Gurobi's output and other aspects in the solution process
-        # feel free to change them / add new ones as you see fit
-        # (see https://docs.gurobi.com/projects/optimizer/en/current/concepts/parameters.html)
-        # model.Params.OutputFlag = 0
-        # model.Params.MIPFocus = 2
-
+        log(f"Optimizing model [{model_name}]...")
         if args.formulation in {"cec", "dcc"}:
             model.optimize(lazy_constraint_callback)
         else:
@@ -75,6 +86,7 @@ def execute_lp(args):
         k_mst = G.edge_subgraph(edge for edge in G.edges if G.edges[edge]["id"] in selected_edges)
 
         if model.Status == GRB.Status.OPTIMAL or model.Status == GRB.Status.SUBOPTIMAL:
+            log(f"Finished optimization of model [{model_name}]!")
             if k_mst.number_of_nodes() == 0:
                 sys.exit("Error: Received an empty subgraph.")
             if not nx.is_tree(k_mst):
@@ -86,7 +98,7 @@ def execute_lp(args):
             else:
                 print("k-MST is valid")
         else:
-            print("Optimization aborted.")
+            log("Optimization aborted.")
 
         # draw graph for debugging purposes
         if args.show:
