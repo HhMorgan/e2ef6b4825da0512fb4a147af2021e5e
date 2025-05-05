@@ -20,10 +20,13 @@ def log(message: str) -> None:
     print(f"[{current_time.isoformat(timespec="seconds")}]: {message}")
 
 def execute_lp(args):
-    inst = Path(args.instance).stem
-    model_name = f"{inst}_{args.k}_{args.formulation}"
+    instance_name = Path(args.instance).stem
+    model_name = f"{instance_name}_{args.k}_{args.formulation}"
 
+    print("-" * 40)
+    log(f"Reading instance {instance_name} for model [{model_name}]...")
     G: nx.Graph = read_instance(args.instance)
+    G.undirected = True  # make sure the graph is undirected
 
     # guard clauses for nonsensical inputs
     if args.k < 0:
@@ -39,7 +42,6 @@ def execute_lp(args):
         model._k = args.k
         model._formulation = args.formulation
 
-        print("-" * 40)
         # some parameters to control Gurobi's output and other aspects in the solution process
         # feel free to change them / add new ones as you see fit
         # (see https://docs.gurobi.com/projects/optimizer/en/current/concepts/parameters.html)
@@ -48,8 +50,7 @@ def execute_lp(args):
         model.Params.LogToConsole = 0   # hide verbose gurobi output
         model.Params.LogFile = "gurobi.log"
 
-
-        log(f"Building model [{model_name}] now...")
+        log(f"Building model [{model_name}]...")
         create_model(model, G, args.k)
         model.update()
 

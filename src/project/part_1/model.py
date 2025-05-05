@@ -43,14 +43,23 @@ def add_violated_dcc(model: gp.Model):
     pass
 
 
-def create_model(model: gp.Model, graph: nx.Graph, k: int):
-    graph.undirected = True  # make sure the graph is undirected
-
+def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph = None):
     node_indices = [n for n in graph] # grab the ID of every node in the graph
 
     reversed_arcs = {(j, i) for (i, j) in graph.edges}
     arcs = reversed_arcs.union(set(graph.edges))  # edges in graph and their inverted counterpart
     arcs_with_zero = arcs.union((0, j) for j in node_indices)
+
+    # create a directed NX graph from all the arcs (useful for querying incident arcs later)
+    if graph.is_directed():
+        digraph = graph
+    elif not digraph:
+        digraph = nx.DiGraph()
+        digraph.add_edges_from(arcs)
+
+    digraph_with_zero = digraph.copy()
+    digraph_with_zero.add_node(0)
+    digraph_with_zero.add_edges_from((0, j) for j in node_indices)
 
     # common variables
     x = model.addVars(
@@ -78,8 +87,8 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstrs((v[i] + x[i,j] <= v[j] + k * (1 - x[i,j])
                           for (i,j) in arcs_with_zero),
                           "impose_order")
-        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == j_g) == y[j_g]
-                          for j_g in node_indices),
+        model.addConstrs((gp.quicksum(x[i,j] for i in digraph_with_zero.predecessors(j)) == y[j]
+                          for j in node_indices),
                          "one_incoming_edge")
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
@@ -108,16 +117,16 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
         model.addConstr(gp.quicksum(f[0, j] for j in node_indices) == k, name="source_flow")
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
-        model.addConstrs((gp.quicksum(f[i, j] for (i, j) in arcs_with_zero if j == j_n) -
-                          gp.quicksum(f[j, i] for (j, i) in arcs_with_zero if j == j_n) == y[j_n]
-                          for j_n in node_indices),
+        model.addConstrs((gp.quicksum(f[i, j] for i in digraph_with_zero.predecessors(j)) -
+                          gp.quicksum(f[j, i] for i in digraph_with_zero.successors(j)) == y[j]
+                          for j in node_indices),
                           name="consume_one_unit")
 
-        model.addConstrs((y[n] >= 1/len(node_indices) * gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == n)
-                          for n in node_indices),
+        model.addConstrs((y[j] >= 1/len(node_indices) * gp.quicksum(x[i,j] for i in digraph_with_zero.predecessors(j))
+                          for j in node_indices),
                           name="flow_inclusion")
-        model.addConstrs((y[n] <= gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == n)
-                          for n in node_indices),
+        model.addConstrs((y[j] <= gp.quicksum(x[i,j] for i in digraph_with_zero.predecessors(j))
+                          for j in node_indices),
                           name="flow_exclusion")
 
         model.addConstrs((0 <= f[i,j]
@@ -142,21 +151,21 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                         for v in node_indices), name="source_flow")
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_entry_point")
 
-        model.addConstrs((gp.quicksum(f[i,v,v] for (i,v) in arcs_with_zero if v == v_n) -
-                          gp.quicksum(f[v,i,v] for (v,i) in arcs_with_zero if v == v_n) == y[v_n]
-                         for v_n in node_indices), "consume_own_flow")
+        model.addConstrs((gp.quicksum(f[i,v,v] for i in digraph_with_zero.predecessors(v)) -
+                          gp.quicksum(f[v,j,v] for j in digraph_with_zero.successors(v)) == y[v]
+                         for v in node_indices), "consume_own_flow")
 
-        model.addConstrs((gp.quicksum(f[i,j,v] for (i,j) in arcs_with_zero if j == j_n) -
-                          gp.quicksum(f[j,i,v] for (j,i) in arcs_with_zero if j == j_n)
+        model.addConstrs((gp.quicksum(f[i,j,v] for i in digraph_with_zero.predecessors(j)) -
+                          gp.quicksum(f[j,i,v] for i in digraph_with_zero.successors(j))
                           == 0
-                          for j_n in node_indices for v in node_indices if v != j_n),
+                          for j in node_indices for v in node_indices if v != j),
                          name="non-consumption_foreign_flow")
 
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
 
-        model.addConstrs((gp.quicksum(x[i,j] for (i,j) in arcs_with_zero if j == j_g) == y[j_g]
-                          for j_g in node_indices),
+        model.addConstrs((gp.quicksum(x[i,j] for i in digraph_with_zero.predecessors(j)) == y[j]
+                          for j in node_indices),
                          "one_incoming_edge")
 
         model.addConstrs((0 <= f[i,j,v]
