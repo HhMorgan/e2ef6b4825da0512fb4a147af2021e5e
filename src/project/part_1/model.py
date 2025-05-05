@@ -146,10 +146,10 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int):
                           gp.quicksum(f[v,i,v] for (v,i) in arcs_with_zero if v == v_n) == y[v_n]
                          for v_n in node_indices), "consume_own_flow")
 
-        model.addConstrs((gp.quicksum(f[i,j,v] for (i,j,v) in arcs_times_vertices_with_zero if j == j_n and v == v_n) -
-                          gp.quicksum(f[j,i,v] for (j,i,v) in arcs_times_vertices_with_zero if j == j_n and v == v_n)
+        model.addConstrs((gp.quicksum(f[i,j,v] for (i,j) in arcs_with_zero if j == j_n) -
+                          gp.quicksum(f[j,i,v] for (j,i) in arcs_with_zero if j == j_n)
                           == 0
-                          for j_n in node_indices for v_n in node_indices if v_n != j_n),
+                          for j_n in node_indices for v in node_indices if v != j_n),
                          name="non-consumption_foreign_flow")
 
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
