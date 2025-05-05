@@ -85,12 +85,13 @@ def execute_lp(args):
 
         model.printStats()
 
-        # check solution feasibility
-        selected_edges = set(get_selected_edge_ids(model, G))
-        k_mst = G.edge_subgraph(edge for edge in G.edges if G.edges[edge]["id"] in selected_edges)
-
         if model.Status == GRB.Status.OPTIMAL or model.Status == GRB.Status.SUBOPTIMAL:
             log(f"Finished optimization of model [{model_name}]!")
+
+            # check solution feasibility
+            selected_edges = set(get_selected_edge_ids(model, G))
+            k_mst = G.edge_subgraph(edge for edge in G.edges if G.edges[edge]["id"] in selected_edges)
+
             if k_mst.number_of_nodes() == 0:
                 sys.exit("Error: Received an empty subgraph.")
             if not nx.is_tree(k_mst):
@@ -101,13 +102,14 @@ def execute_lp(args):
                 print(f"{nx.number_connected_components(k_mst)=}")
             else:
                 print("k-MST is valid")
+
+            # draw graph for debugging purposes
+            if args.show:
+                nx.draw(k_mst, with_labels=True)
+                plt.show()
         else:
             log("Optimization aborted.")
 
-        # draw graph for debugging purposes
-        if args.show:
-            nx.draw(k_mst, with_labels=True)
-            plt.show()
 
         if args.results_file:
             # create dict from gurobi status codes
