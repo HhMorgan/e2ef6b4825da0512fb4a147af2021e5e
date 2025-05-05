@@ -17,7 +17,7 @@ from util import read_instance, write_solution
 
 def log(message: str) -> None:
     current_time = datetime.datetime.now().time()
-    print(f"[{current_time.isoformat(timespec="seconds")}]: {message}")
+    print(f"[{current_time.isoformat(timespec="seconds")}]: {message}", flush=True)
 
 def execute_lp(args):
     instance_name = Path(args.instance).stem
