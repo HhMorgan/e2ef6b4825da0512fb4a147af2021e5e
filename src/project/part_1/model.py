@@ -111,6 +111,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         f = model.addVars(
             arcs_with_zero,
             name="f",
+            lb=0,
             vtype=GRB.CONTINUOUS,
         )
 
@@ -129,9 +130,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
                           for j in node_indices),
                           name="flow_exclusion")
 
-        model.addConstrs((0 <= f[i,j]
-                          for (i, j) in arcs_with_zero),
-                          name="positive_flow")
+        # hint: positive flow constraint is managed through lower bound for f variable
         model.addConstrs((f[i,j] <= k * x[i,j]
                           for (i, j) in arcs_with_zero),
                          name="capped_flow")
@@ -144,6 +143,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         f = model.addVars(
             arcs_times_vertices_with_zero,
             name="f",
+            lb=0,
             vtype=GRB.CONTINUOUS,
         )
 
@@ -168,9 +168,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
                           for j in node_indices),
                          "one_incoming_edge")
 
-        model.addConstrs((0 <= f[i,j,v]
-                          for (i,j,v) in arcs_times_vertices_with_zero),
-                          name="positive_flow")
+        # hint: positive flow constraint is managed through lower bound for f variable
         model.addConstrs((f[i,j,v] <= x[i,j]
                           for (i,j,v) in arcs_times_vertices_with_zero),
                           name="unit_flow")
