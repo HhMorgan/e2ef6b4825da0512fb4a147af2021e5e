@@ -74,11 +74,14 @@ def execute_lp(args):
         if args.formulation in {"cec", "dcc"}:
             model.Params.LazyConstraints = 1
 
-        log(f"Optimizing model [{model_name}]...")
-        if args.formulation in {"cec", "dcc"}:
-            model.optimize(lazy_constraint_callback)
-        else:
-            model.optimize()
+        try:
+            log(f"Optimizing model [{model_name}]...")
+            if args.formulation in {"cec", "dcc"}:
+                model.optimize(lazy_constraint_callback)
+            else:
+                model.optimize()
+        except gp.GurobiError as e:
+            log(f"ERROR in optimization: " + str(e))
 
         model.printStats()
 
