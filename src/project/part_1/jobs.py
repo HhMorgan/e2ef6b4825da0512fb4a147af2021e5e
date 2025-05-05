@@ -31,7 +31,7 @@ def run_jobs(instance_dir: str, results_file: str):
     args.show = False
     args.results_file = results_file
 
-    for filename in os.listdir(instance_dir):
+    for filename in sorted(os.listdir(instance_dir)):
         filepath = os.path.join(instance_dir, filename)
 
         args.instance = filepath
