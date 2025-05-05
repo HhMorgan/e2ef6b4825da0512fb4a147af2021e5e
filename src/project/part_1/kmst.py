@@ -85,6 +85,10 @@ def execute_lp(args):
 
         model.printStats()
 
+        # create dict from gurobi status codes
+        # taken from: https://support.gurobi.com/hc/en-us/community/posts/360047967872/comments/360012141411
+        status_names = {SC.__dict__[k]: k for k in SC.__dict__.keys() if 'A' <= k[0] <= 'Z'}
+
         if model.Status == GRB.Status.OPTIMAL or model.Status == GRB.Status.SUBOPTIMAL:
             log(f"Finished optimization of model [{model_name}]!")
 
@@ -108,14 +112,10 @@ def execute_lp(args):
                 nx.draw(k_mst, with_labels=True)
                 plt.show()
         else:
-            log("Optimization aborted.")
+            log(f"Optimization aborted [{status_names[model.Status]}]")
 
 
         if args.results_file:
-            # create dict from gurobi status codes
-            # taken from: https://support.gurobi.com/hc/en-us/community/posts/360047967872/comments/360012141411
-            status_names = {SC.__dict__[k]: k for k in SC.__dict__.keys() if 'A' <= k[0] <= 'Z'}
-
             # collect statistics
             results = {
                 "name": args.run_name,
