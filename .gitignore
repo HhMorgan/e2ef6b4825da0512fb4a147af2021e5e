@@ -6,3 +6,4 @@
 variable_table.txt
 *.lp
 *.csv
+!results/*
