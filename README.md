@@ -36,11 +36,11 @@ To do some benchmarking on increasingly large instances, run the `jobs.py` scrip
 ```sh
 uv run src/project/part_1/jobs.py
 ```
+This will save various statistics from the optimization runs to a CSV file called
+`results.csv` that is created in the project's root directory.
 
 **Method 2:** Test only a specific formulation (seq, scf, mcf), add the `--formulation` option:
 ```sh
 uv run src/project/part_1/jobs.py --formulation seq
 ```
-
-In both cases, the program will dump statistics from the optimization runs in a CSV file called
-`results.csv` that is created in the project's root directory.
+This creates a file called `results_[formulation].csv` to store the benchmark statistics.
