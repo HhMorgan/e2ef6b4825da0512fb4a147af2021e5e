@@ -60,15 +60,10 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
     reversed_arcs = {(j, i) for (i, j) in graph.edges}
     arcs = reversed_arcs.union(set(graph.edges))  # edges in graph and their inverted counterpart
-    arcs_with_zero = arcs.union((0, j) for j in node_indices)
 
     # create a directed NX graph from all the arcs (useful for querying incident arcs later)
     digraph = nx.DiGraph()
     digraph.add_edges_from(arcs)
-
-    digraph_with_zero = digraph.copy()
-    digraph_with_zero.add_node(0)
-    digraph_with_zero.add_edges_from((0, j) for j in node_indices)
 
     terminal_vertices = list([t for t in graph.nodes if graph.nodes[t]['terminal']])
     root = terminal_vertices[0]
@@ -78,7 +73,6 @@ def build_model(model: gp.Model, graph: nx.Graph):
         [e for e,i,j in edge_data],
         name="x",
         lb=0,
-        # ub=1,
         vtype=GRB.CONTINUOUS
     )
     y = model.addVars(
@@ -87,18 +81,26 @@ def build_model(model: gp.Model, graph: nx.Graph):
         vtype=GRB.BINARY
     )
 
+    # print(f"root = {root}")
     # constraints
-    for subset in subsets(terminal_vertices):
+    # for subset in subsets(terminal_vertices):
+    #     if root in subset:
+    #         # print(f"P = {subset}")
+    #         edges_out_of_p = edge_boundary(digraph, subset)
+    #         # edges_into_p = ((j, i) for (i, j) in edges_out_of_p)
+    #         model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P subsets")
+
+    for subset in subsets(node_indices):
         if root in subset:
-            edges_out_of_p = edge_boundary(digraph, subset)
-            edges_into_p = ((j, i) for (i, j) in edges_out_of_p)
-            model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_into_p) >= 1, "P subsets")
+            if not len(set(terminal_vertices).difference(set(subset))) == 0:
+                edges_out_of_p = edge_boundary(digraph, subset)
+                model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P subsets")
 
     model.addConstr(gp.quicksum(y[i, j] for (i, j) in arcs if j in terminal_vertices) == len(terminal_vertices) - 1,
                     name="form a tree")
 
     model.addConstrs((x[e] == y[i, j] + y[j, i]
-                      for e,i,j in edge_data), "edge inclusion")
+                      for e,i,j in edge_data), "bind x to y")
 
     # objective function
     model.setObjective(gp.quicksum(x[e] * graph.edges[i,j]["weight"] for e,i,j in edge_data),
@@ -107,7 +109,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--filename", default="instances/ex2/stp-instance.dat")
+    parser.add_argument("--filename", default="instances/ex2/stp-instance_small.dat")
     args = parser.parse_args()
 
     graph = read_instance_file(args.filename)
