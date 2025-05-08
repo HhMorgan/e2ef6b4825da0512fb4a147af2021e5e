@@ -1,41 +1,46 @@
-# e2ef6b4825da0512fb4a147af2021e5e
+# Programming Project - Part 1
 
-This framework is provided to help you implement the models on the first exercise sheet. Feel free to alter the code as you see fit.
+_Hesham Morgan, Johannes Riedmann_
 
-It uses Python 3.12 and Gurobi 12 (via `gurobipy`).
+## Requirements
 
-## Using `uv`
+- Python 3.12 installed
+- Env-variable `GRB_LICENSE_FILE` set to the path of a Gurobi licence file
 
-The framework uses `uv` to manage the Python project and its dependencies.
+## Setup
 
-### Installing `uv`
+The framework uses [uv](https://docs.astral.sh/uv/getting-started/installation/) to manage the Python project and its dependencies.
 
-See https://docs.astral.sh/uv/getting-started/installation/ on how to install it.
-
-### Setting up the virtual enrivonment
-
-Run `uv sync` to set up the virtual environment with all dependencies.
-
-### Adding dependencies
-
-Run `uv add name_of_python_package` to add a new dependency to `pyproject.toml`.
-
-
-## Installing Gurobi
-
-The Gurobi version included with `gurobipy` supports models with up to 2k variables and constraints, which should be enough for this exercise's instances.
-
-For larger instances (like you'll find in the programming project), you'll need a license. You can get a free academic named-user license to run Gurobi on your computer if you register with your TU-Wien-provided email address. See here for details: https://www.gurobi.com/features/academic-named-user-license/
-
-
-## Using the framework
-
-Run
-
-```
-uv run src/mathprog_ex1/ex1.1.py
-uv run src/mathprog_ex1/ex1.2.py
-uv run src/mathprog_ex1/ex1.3.py
+Run `uv sync` in the project's root directory to set up the virtual environment with all dependencies.
+```sh
+uv sync
 ```
 
-from the project root directory (the one containing `pyproject.toml`) to run the code for the respective exercise.
+## Deployment
+
+### Running a single optimization
+
+To run the optimization of a specific formulation use the following command in the project's root directory
+
+```sh
+uv run src/project/part_1/kmst.py -k 4 --instance "instances/project/g01.dat" --formulation seq
+```
+
+Replace the k-value, the instance file, and the respective formulation (`"seq", "scf", "mcf"`) as you please.
+
+### Running the benchmarking
+
+To do some benchmarking on increasingly large instances, run the `jobs.py` script instead.
+
+**Method 1:** Test all formulations (seq, scf, mcf) at the same time:
+```sh
+uv run src/project/part_1/jobs.py
+```
+
+**Method 2:** Test only a specific formulation (seq, scf, mcf), add the `--formulation` option:
+```sh
+uv run src/project/part_1/jobs.py --formulation seq
+```
+
+In both cases, the program will dump statistics from the optimization runs in a CSV file called
+`results.csv` that is created in the project's root directory.
