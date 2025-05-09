@@ -94,13 +94,13 @@ def build_model(model: gp.Model, graph: nx.Graph):
         if root in subset:
             if not len(set(terminal_vertices).difference(set(subset))) == 0:
                 edges_out_of_p = edge_boundary(digraph, subset)
-                model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P subsets")
+                model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P_subsets")
 
     model.addConstr(gp.quicksum(y[i, j] for (i, j) in arcs if j in terminal_vertices) == len(terminal_vertices) - 1,
-                    name="form a tree")
+                    name="form_a_tree")
 
     model.addConstrs((x[e] == y[i, j] + y[j, i]
-                      for e,i,j in edge_data), "bind x to y")
+                      for e,i,j in edge_data), "bind_x_to_y")
 
     # objective function
     model.setObjective(gp.quicksum(x[e] * graph.edges[i,j]["weight"] for e,i,j in edge_data),
