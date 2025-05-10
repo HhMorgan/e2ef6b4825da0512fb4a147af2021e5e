@@ -1,5 +1,4 @@
 import argparse
-import os
 
 import gurobipy as gp
 import matplotlib.pyplot as plt
@@ -7,21 +6,7 @@ import networkx as nx
 from gurobipy import GRB
 from networkx.algorithms.boundary import edge_boundary
 
-from src.util.utils import rooted_proper_subsets, read_instance_file
-
-
-def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
-    selected_edges: list[int] = []
-    if model.SolCount > 0:
-        for i, j, data in graph.edges(data=True):
-            edge_id = int(data['id'])
-            x_e = model.getVarByName(f'x[{edge_id}]')
-
-            if x_e.X >= 1:
-                print(edge_id)
-                selected_edges.append(edge_id)
-
-    return selected_edges
+from src.util.utils import rooted_proper_subsets, read_instance_file, get_selected_edge_ids
 
 
 def build_model(model: gp.Model, graph: nx.Graph):

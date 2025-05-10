@@ -2,6 +2,7 @@ import os
 import re
 from typing import TypeVar, List, Iterator, Sequence, Collection, Callable, Any
 
+import gurobipy as gp
 import networkx as nx
 
 T = TypeVar('T')
@@ -12,6 +13,18 @@ def get_sorted_vars(model):
     vars_list = model.getVars()
     # Sort the variables by their variable name
     return sorted(vars_list, key=lambda v: v.VarName)
+
+def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
+    selected_edges: list[int] = []
+    if model.SolCount > 0:
+        for i, j, data in graph.edges(data=True):
+            edge_id = int(data['id'])
+            x_e = model.getVarByName(f'x[{edge_id}]')
+
+            if x_e.X >= 1:
+                selected_edges.append(edge_id)
+
+    return selected_edges
 
 
 def proper_subsets(collection: Collection[T]) -> Iterator[List[T]]:
