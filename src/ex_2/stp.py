@@ -7,13 +7,7 @@ import networkx as nx
 from gurobipy import GRB
 from networkx.algorithms.boundary import edge_boundary
 
-
-def subsets(iterable):
-    total_length = len(iterable)
-    masks = [1 << i for i in range(total_length)]
-
-    for i in range(1, (1 << total_length) - 2):
-        yield [subset for mask, subset in zip(masks, iterable) if i & mask]
+from src.util.utils import rooted_proper_subsets
 
 
 def read_instance_file(filename: str | os.PathLike) -> nx.Graph:
@@ -38,10 +32,11 @@ def read_instance_file(filename: str | os.PathLike) -> nx.Graph:
 
         return G
 
+
 def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     selected_edges: list[int] = []
     if model.SolCount > 0:
-        for i,j,data in graph.edges(data=True):
+        for i, j, data in graph.edges(data=True):
             edge_id = int(data['id'])
             x_e = model.getVarByName(f'x[{edge_id}]')
 
@@ -56,7 +51,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
     graph.undirected = True  # make sure the graph is undirected
 
     node_indices = [n for n in graph]  # grab the ID of every node in the graph
-    edge_data = [(data['id'], i,j) for i,j,data in graph.edges(data=True)]
+    edge_data = [(data['id'], i, j) for i, j, data in graph.edges(data=True)]
 
     reversed_arcs = {(j, i) for (i, j) in graph.edges}
     arcs = reversed_arcs.union(set(graph.edges))  # edges in graph and their inverted counterpart
@@ -70,7 +65,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
     # variables
     x = model.addVars(
-        [e for e,i,j in edge_data],
+        [e for e, i, j in edge_data],
         name="x",
         lb=0,
         vtype=GRB.CONTINUOUS
@@ -83,27 +78,19 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
     # print(f"root = {root}")
     # constraints
-    # for subset in subsets(terminal_vertices):
-    #     if root in subset:
-    #         # print(f"P = {subset}")
-    #         edges_out_of_p = edge_boundary(digraph, subset)
-    #         # edges_into_p = ((j, i) for (i, j) in edges_out_of_p)
-    #         model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P subsets")
-
-    for subset in subsets(node_indices):
-        if root in subset:
-            if not len(set(terminal_vertices).difference(set(subset))) == 0:
-                edges_out_of_p = edge_boundary(digraph, subset)
-                model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P_subsets")
+    for subset in rooted_proper_subsets(node_indices, root):
+        if not len(set(terminal_vertices).difference(set(subset))) == 0:
+            edges_out_of_p = edge_boundary(digraph, subset)
+            model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P_subsets")
 
     model.addConstr(gp.quicksum(y[i, j] for (i, j) in arcs if j in terminal_vertices) == len(terminal_vertices) - 1,
                     name="form_a_tree")
 
     model.addConstrs((x[e] == y[i, j] + y[j, i]
-                      for e,i,j in edge_data), "bind_x_to_y")
+                      for e, i, j in edge_data), "bind_x_to_y")
 
     # objective function
-    model.setObjective(gp.quicksum(x[e] * graph.edges[i,j]["weight"] for e,i,j in edge_data),
+    model.setObjective(gp.quicksum(x[e] * graph.edges[i, j]["weight"] for e, i, j in edge_data),
                        GRB.MINIMIZE)
 
 
