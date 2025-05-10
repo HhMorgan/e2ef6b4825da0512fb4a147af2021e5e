@@ -1,13 +1,18 @@
+import os
 import re
-from typing import TypeVar, List, Iterator, Sequence, Collection
+from typing import TypeVar, List, Iterator, Sequence, Collection, Callable, Any
+
+import networkx as nx
 
 T = TypeVar('T')
+LINE_OFFSET: int = 3
 
 
 def get_sorted_vars(model):
     vars_list = model.getVars()
     # Sort the variables by their variable name
     return sorted(vars_list, key=lambda v: v.VarName)
+
 
 def proper_subsets(collection: Collection[T]) -> Iterator[List[T]]:
     """
@@ -25,6 +30,7 @@ def proper_subsets(collection: Collection[T]) -> Iterator[List[T]]:
 
     for i in range(1, (1 << total_length) - 2):
         yield [subset for mask, subset in zip(masks, collection) if i & mask]
+
 
 def rooted_proper_subsets(collection: Sequence[T], root: T) -> Iterator[List[T]]:
     """
@@ -49,6 +55,47 @@ def rooted_proper_subsets(collection: Sequence[T], root: T) -> Iterator[List[T]]
         subset = [collection[j] for j in range(n) if (i & (1 << j))]
         if root in subset:
             yield subset
+
+
+def read_instance_file(filename: str | os.PathLike,
+                       node_params: dict[str, Callable[[list[str]], Any]],
+                       edge_params: dict[str, Callable[[list[str]], Any]],
+                       node_id_idx: int = 0, edge_from_to_idx: (int, int) = (1, 2)) -> nx.Graph:
+    with open(filename, "r", encoding="utf-8") as f:
+        n_nodes = int(f.readline())
+        m_edges = int(f.readline())
+
+        graph = nx.Graph()
+
+        for n in range(n_nodes):
+            values = f.readline().split()
+
+            if len(values) != len(node_params) + 1:
+                raise ValueError(f"Unexpected number of values for node on line {n + LINE_OFFSET}! "
+                                 f"Expected: {len(node_params) + 1}, got: {len(values)}")
+
+            node_kwargs = _get_kwargs(node_params, values)
+            graph.add_node(int(values[node_id_idx]), **node_kwargs)
+
+        for m in range(m_edges):
+            values = f.readline().split()
+
+            if len(values) != len(edge_params) + 2:
+                raise ValueError(f"Unexpected number of values for edge on line {n_nodes + m + LINE_OFFSET}! "
+                                 f"Expected: {len(edge_params) + 2}, got: {len(values)}")
+
+            (u, v) = edge_from_to_idx
+            edge_kwargs = _get_kwargs(edge_params, values)
+            graph.add_edge(int(values[u]), int(values[v]), **edge_kwargs)
+
+        return graph
+
+
+def _get_kwargs(params: dict[str, Callable[[list[str]], Any]], values: list[str]):
+    kwargs = {}
+    for arg_name, converter in params.items():
+        kwargs[arg_name] = converter(values)
+    return kwargs
 
 
 def latex_escape(s):

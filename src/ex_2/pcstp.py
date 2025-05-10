@@ -1,35 +1,11 @@
 import argparse
-import os
 
 import gurobipy as gp
 import matplotlib.pyplot as plt
 import networkx as nx
 from gurobipy import GRB
 
-from src.util.utils import rooted_proper_subsets
-
-
-def read_instance_file(filename: str | os.PathLike) -> nx.Graph:
-    with open(filename, "r", encoding="utf-8") as f:
-        n_nodes = int(f.readline())
-        m_edges = int(f.readline())
-
-        G = nx.Graph()
-
-        for _ in range(n_nodes):
-            line = f.readline()
-            node_id, prize = line.split()
-            G.add_node(int(node_id), prize=int(prize))
-
-        for _ in range(m_edges):
-            line = f.readline()
-            values = line.split()
-            if len(values) == 4:
-                G.add_edge(int(values[1]), int(values[2]),
-                           id=int(values[0]),
-                           cost=int(values[3]))
-
-        return G
+from src.util.utils import rooted_proper_subsets, read_instance_file
 
 
 def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
@@ -84,7 +60,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
     )
 
     # constraints
-    for subset in rooted_proper_subsets(node_indices + [root]):
+    for subset in rooted_proper_subsets(node_indices + [root], root):
         edges_out_of_s = nx.edge_boundary(digraph_with_zero, subset)
         model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_s) >= 1, "S_subsets")
 
@@ -107,7 +83,15 @@ if __name__ == "__main__":
     parser.add_argument("--filename", default="instances/ex2/pcstp-instance_medium.dat")
     args = parser.parse_args()
 
-    graph = read_instance_file(args.filename)
+    # describe how the instance file should be parsed
+    node_params = {
+        "prize": lambda values: int(values[1]),
+    }
+    edge_params = {
+        "id": lambda values: int(values[0]),
+        "cost": lambda values: int(values[3]),
+    }
+    graph = read_instance_file(args.filename, node_params, edge_params)
 
     model = gp.Model("Prize-collecting Steiner Tree Problem")
     build_model(model, graph)
