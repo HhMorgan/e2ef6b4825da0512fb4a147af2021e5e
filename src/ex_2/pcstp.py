@@ -20,12 +20,11 @@ def build_model(model: gp.Model, graph: nx.Graph):
     arcs_with_zero = arcs.union((root, j) for j in node_indices)
 
     # create a directed NX graph from all the arcs (useful for querying incident arcs later)
-    digraph = nx.DiGraph()
-    digraph.add_edges_from(arcs)
+    digraph = graph.to_directed()
 
     digraph_with_zero = digraph.copy()
     digraph_with_zero.add_node(0)
-    digraph_with_zero.add_edges_from((0, j) for j in node_indices)
+    digraph_with_zero.add_edges_from([(0, j) for j in node_indices], cost=0)
 
     # variables
     x = model.addVars(

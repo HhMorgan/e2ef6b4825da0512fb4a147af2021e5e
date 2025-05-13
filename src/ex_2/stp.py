@@ -19,11 +19,11 @@ def build_model(model: gp.Model, graph: nx.Graph):
     arcs = reversed_arcs.union(set(graph.edges))  # edges in graph and their inverted counterpart
 
     # create a directed NX graph from all the arcs (useful for querying incident arcs later)
-    digraph = nx.DiGraph()
-    digraph.add_edges_from(arcs)
+    digraph = graph.to_directed()
 
     terminal_vertices = list([t for t in graph.nodes if graph.nodes[t]['terminal']])
     root = terminal_vertices[0]
+    terminal_vertices = set(terminal_vertices)
 
     # variables
     x = model.addVars(
@@ -41,7 +41,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
     # print(f"root = {root}")
     # constraints
     for subset in rooted_proper_subsets(node_indices, root):
-        if not len(set(terminal_vertices).difference(set(subset))) == 0:
+        if not len(terminal_vertices.difference(set(subset))) == 0:
             edges_out_of_p = edge_boundary(digraph, subset)
             model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_out_of_p) >= 1, "P_subsets")
 
