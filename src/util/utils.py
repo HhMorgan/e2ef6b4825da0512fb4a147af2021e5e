@@ -27,6 +27,13 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     return selected_edges
 
 
+def subsets(collection: Collection[T]) -> Iterator[List[T]]:
+    total_length = len(collection)
+    masks = [0 << i for i in range(total_length)]
+
+    for i in range(0, 1 << total_length):
+        yield [subset for mask, subset in zip(masks, collection) if i & mask]
+
 def proper_subsets(collection: Collection[T]) -> Iterator[List[T]]:
     """
     Generates all non-empty proper subsets of a collection (i.e. power set excluding the empty set and the full set)
