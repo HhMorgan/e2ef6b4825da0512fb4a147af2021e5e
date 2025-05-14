@@ -14,6 +14,7 @@ def get_sorted_vars(model):
     # Sort the variables by their variable name
     return sorted(vars_list, key=lambda v: v.VarName)
 
+
 def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     selected_edges: list[int] = []
     if model.SolCount > 0:
@@ -27,12 +28,21 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
     return selected_edges
 
 
-def subsets(collection: Collection[T]) -> Iterator[List[T]]:
+def powerset(collection: Collection[T]) -> Iterator[List[T]]:
     total_length = len(collection)
-    masks = [0 << i for i in range(total_length)]
+    masks = [1 << i for i in range(total_length)]
 
     for i in range(0, 1 << total_length):
         yield [subset for mask, subset in zip(masks, collection) if i & mask]
+
+
+def nonempty_subsets(collection: Collection[T]) -> Iterator[List[T]]:
+    total_length = len(collection)
+    masks = [1 << i for i in range(total_length)]
+
+    for i in range(1, 1 << total_length):
+        yield [subset for mask, subset in zip(masks, collection) if i & mask]
+
 
 def proper_subsets(collection: Collection[T]) -> Iterator[List[T]]:
     """
@@ -233,3 +243,28 @@ def generate_three_long_tables_per_page(model, vars_per_table=50, precision_digi
 
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(final_output))
+
+
+# run some tests
+if __name__ == '__main__':
+    elements = [1, 2, 3, 4]
+
+    powerset = powerset(elements)
+    nonempty_subs = nonempty_subsets(elements)
+    proper_subs = proper_subsets(elements)
+    rooted_subs = rooted_proper_subsets(elements, 2)
+
+    true_powerset = [[], [1], [2], [1, 2], [3], [1, 3], [2, 3], [1, 2, 3], [4], [1, 4], [2, 4], [1, 2, 4], [3, 4],
+                     [1, 3, 4], [2, 3, 4], [1, 2, 3, 4]]
+    true_nonempty_subs = [[1], [2], [1, 2], [3], [1, 3], [2, 3], [1, 2, 3], [4], [1, 4], [2, 4], [1, 2, 4], [3, 4],
+                          [1, 3, 4], [2, 3, 4], [1, 2, 3, 4]]
+    true_proper_subs = [[1], [2], [1, 2], [3], [1, 3], [2, 3], [1, 2, 3], [4], [1, 4], [2, 4], [1, 2, 4], [3, 4],
+                        [1, 3, 4]]
+    true_rooted_subs = [[2], [1, 2], [2, 3], [1, 2, 3], [2, 4], [1, 2, 4], [2, 3, 4]]
+
+    assert sorted(powerset) == sorted(true_powerset)
+    assert sorted(nonempty_subs) == sorted(true_nonempty_subs)
+    assert sorted(proper_subs) == sorted(true_proper_subs)
+    assert sorted(rooted_subs) == sorted(true_rooted_subs)
+
+    print("All tests passed!")
