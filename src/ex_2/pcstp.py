@@ -1,12 +1,11 @@
 import argparse
-from collections import defaultdict
 
 import gurobipy as gp
 import matplotlib.pyplot as plt
 import networkx as nx
 from gurobipy import GRB
 
-from src.util.utils import read_instance_file, get_selected_edge_ids, subsets, proper_subsets
+from src.util.utils import read_instance_file, get_selected_edge_ids, powerset, proper_subsets, nonempty_subsets
 
 
 def build_model(model: gp.Model, graph: nx.Graph):
@@ -31,7 +30,6 @@ def build_model(model: gp.Model, graph: nx.Graph):
     x = model.addVars(
         [e for e, i, j in edge_data],
         name="x",
-        lb=0,
         vtype=GRB.CONTINUOUS
     )
     y = model.addVars(
@@ -46,41 +44,19 @@ def build_model(model: gp.Model, graph: nx.Graph):
     )
 
     # constraints
-    # for subset in rooted_proper_subsets(node_indices + [root], root):
-    #     edges_out_of_s = nx.edge_boundary(digraph_with_zero, subset)
-    #     model.addConstr((gp.quicksum(y[i, j] for (i, j) in edges_out_of_s) >= 1), "S_subsets")
-
-    for subset in proper_subsets(node_indices):
-        subset.append(root)
+    for subset in nonempty_subsets(node_indices):
         subset_complement = set(node_indices + [root]).difference(subset)
-        # cutset = nx.edge_boundary(digraph_with_zero, subset_complement, subset)  # edges into s
-        cutset = nx.edge_boundary(digraph_with_zero, subset) # edges out of s
-
-        edges_outside_subset = [(i,j) for (i,j) in arcs_with_zero if j in subset_complement]
-
-        model.addConstr(gp.quicksum(y[i, j] for (i, j) in cutset) >= 1, "P_subsets")
-        model.addConstr(gp.quicksum(y[i, j] for (i, j) in edges_outside_subset) >= len(subset_complement) - 1, name="subset_is_tree")
-
-        # edges_by_target = defaultdict(list)
-        # for edge in cutset:
-        #     edges_by_target[edge[1]].append(edge)
-
-        # model.addConstrs((gp.quicksum(y[i, j] for (i, j) in edges_by_target[j_g]) >= v[j_g]
-        #                   for j_g in subset), "S_subsets")
-
-        # taken_vertices = sum(v[i] for i in subset)
-        # model.addConstr((gp.quicksum(y[i, j] for (i, j) in cutset) >= 1/len(subset) * taken_vertices), "S_subsets")
-
-    model.addConstrs((gp.quicksum(y[i, j] for (i, j) in arcs_with_zero if j == j_g) >= v[j_g]
-                      for j_g in node_indices), name="exactly_one_incoming")
+        cutset = list(nx.edge_boundary(digraph_with_zero, subset_complement, subset))
+        model.addConstrs((gp.quicksum(y[i, j] for (i, j) in cutset) >= v[s] for s in subset), "S_subsets")
 
     model.addConstr(gp.quicksum(y[0, j] for j in node_indices) == 1, name="one_root_edge")
 
     model.addConstrs((x[e] == y[i, j] + y[j, i]
                       for e, i, j in edge_data), "edge_inclusion")
 
-    model.addConstrs((y[i, j] <= v[j]
-                      for (i, j) in arcs_with_zero), "vertex_inclusion")
+    # this constraint is not needed as the solver will want to choose v_i variables anyway to collect the prizes
+    # model.addConstrs((y[i, j] <= v[j]
+    #                   for (i, j) in arcs_with_zero), "vertex_inclusion")
 
     # objective function
     model.setObjective(gp.quicksum(v[i] * graph.nodes[i]["prize"] for i in graph) -
@@ -90,7 +66,7 @@ def build_model(model: gp.Model, graph: nx.Graph):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--filename", default="instances/ex2/pcstp-instance_small.dat")
+    parser.add_argument("--filename", default="instances/ex2/pcstp-instance_medium.dat")
     args = parser.parse_args()
 
     # describe how the instance file should be parsed

@@ -29,6 +29,16 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
 
 
 def powerset(collection: Collection[T]) -> Iterator[List[T]]:
+    """
+    Generates all subsets (including the empty set!) of a collection.
+
+    Example:
+        >>> list(powerset([1, 2, 3]))
+        [[], [1], [2], [1, 2], [3], [1, 3], [2, 3], [1, 2, 3]]
+
+    :return: Yields items of type List[T] for each non-empty subset of the input collection.
+    """
+    
     total_length = len(collection)
     masks = [1 << i for i in range(total_length)]
 
@@ -37,6 +47,16 @@ def powerset(collection: Collection[T]) -> Iterator[List[T]]:
 
 
 def nonempty_subsets(collection: Collection[T]) -> Iterator[List[T]]:
+    """
+    Generates all non-empty subsets of a collection (i.e. power set excluding the empty set)
+
+    Example:
+        >>> list(nonempty_subsets([1, 2, 3]))
+        [[1], [2], [1, 2], [3], [1, 3], [2, 3], [1, 2, 3]]
+
+    :return: Yields items of type List[T] for each non-empty subset of the input collection.
+    """
+    
     total_length = len(collection)
     masks = [1 << i for i in range(total_length)]
 
@@ -52,7 +72,7 @@ def proper_subsets(collection: Collection[T]) -> Iterator[List[T]]:
         >>> list(proper_subsets([1, 2, 3]))
         [[1], [2], [1, 2], [3], [1, 3], [2, 3]]
 
-    :return: Yields items of type List[T] for each non-empty proper subset of the input iterable.
+    :return: Yields items of type List[T] for each non-empty proper subset of the input collection.
     """
 
     total_length = len(collection)
@@ -68,10 +88,10 @@ def rooted_proper_subsets(collection: Sequence[T], root: T) -> Iterator[List[T]]
     that contain a specific element called 'root'.
 
     Example:
-        >>> list(proper_subsets([1, 2, 3, 4], 1))
+        >>> list(rooted_proper_subsets([1, 2, 3, 4], 1))
         [[1], [1, 2], [1, 3], [1,4], [1,2,3], [1,2,4], [1,3,4]]
 
-    :return: Yields items of type List[T] for each non-empty proper subset of the input iterable.
+    :return: Yields items of type List[T] for each non-empty proper subset of the input collection.
     """
 
     # check if the root element is actually in the collection
