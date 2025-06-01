@@ -7,8 +7,10 @@ def lazy_constraint_callback(model: gp.Model, where):
     # note: you'll need to account for tolerances!
     # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/concepts/modeling/tolerances.html
 
-    # check integer solutions for feasibility
+    # callback was invoked because the solver found an optimal integral solution
     if where == GRB.Callback.MIPSOL:
+        # check integer solution for feasibility
+
         # get solution values for variables x
         # see https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.cbGetSolution
 
@@ -17,8 +19,10 @@ def lazy_constraint_callback(model: gp.Model, where):
         elif model._formulation == "dcc":
             inequality = find_violated_dcc_int(model)
 
-    # check fractional solutions to find violated CECs/DCCs to strengthen the bound
+    # callback was invoked because the solver found an optimal but fractional solution
     elif where == GRB.Callback.MIPNODE and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL:
+        # check fractional solution to find violated CECs/DCCs to strengthen the bound
+
         # get solution values for variables x
         # see https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.cbGetNodeRel
 
