@@ -111,7 +111,7 @@ def execute_lp(args):
 
             # draw graph for debugging purposes
             if args.show:
-                nx.draw(k_mst, with_labels=True)
+                nx.draw_kamada_kawai(k_mst, with_labels=True)
                 plt.show()
             # draw base graph for debugging purposes
             if args.showOG:

@@ -12,10 +12,6 @@ def lazy_constraint_callback(model: gp.Model, where):
     # callback was invoked because the solver found an optimal integral solution
     if where == GRB.Callback.MIPSOL:
         # check integer solution for feasibility
-
-        # get solution values for variables x
-        # see https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.cbGetSolution
-
         if model._formulation == "cec":
             find_violated_cec_int(model)
         elif model._formulation == "dcc":
@@ -24,11 +20,6 @@ def lazy_constraint_callback(model: gp.Model, where):
     # callback was invoked because the solver found an optimal but fractional solution
     elif where == GRB.Callback.MIPNODE and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL:
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
-
-        # get solution values for variables x
-        # see https://docs.gurobi.com/projects/optimizer/en/current/reference/python/model.html#Model.cbGetNodeRel
-
-        # you may also use different algorithms for integer and fractional separation if you want
         if model._formulation == "cec":
             find_violated_cec_float(model)
         elif model._formulation == "dcc":
@@ -92,7 +83,7 @@ def find_violated_cec_int(model: gp.Model):
     try:
         C = nx.find_cycle(G)
         # Add lazy constraint to eliminate this cycle
-        model.cbLazy(gp.quicksum(x[i, j] for i, j in C) <= len(C) - 1)
+        model.cbLazy(gp.quicksum(x[i, j] + x[j, i] for i, j in C) <= len(C) - 1)
     except nx.NetworkXNoCycle:
         return
 
@@ -107,17 +98,9 @@ def find_violated_dcc_int(model: gp.Model):
 def find_violated_cec_float(model: gp.Model):
     # Get current LP node information
     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
-    current_best_bound = model.cbGet(GRB.Callback.MIPNODE_OBJBND)
 
     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
     max_cuts = 5 if node_count < 100 else 2
-
-    # Check if we've been making progress with cuts
-    # if hasattr(model, '_last_bound'):
-    #     bound_improvement = abs(current_best_bound - model._last_bound)
-    #     if bound_improvement < 1e-4:  # Not much improvement
-    #         max_cuts = 1  # Add fewer cuts
-    # model._last_bound = current_best_bound
 
     digraph = model._graph.copy()
     x = model._x
@@ -127,7 +110,7 @@ def find_violated_cec_float(model: gp.Model):
 
     # Label all arcs with weight w_ij = 1 - x_ij
     for i, j in digraph.edges():
-        val = min(1.0, model.cbGetNodeRel(x[i, j]))
+        val = min(1.0, model.cbGetNodeRel(x[i, j])) # cap weight at 1
         digraph[i][j]['weight'] = 1 - val
 
     # Find violations but be selective about which to add
@@ -158,10 +141,7 @@ def find_violated_cec_float(model: gp.Model):
     for viol in violations[:max_cuts]:
         edges = viol['edges']
 
-        # Check if this cut would actually strengthen the bound
-        # current_sum = sum(model.cbGetNodeRel(x[i, j]) for i, j in edges)
-        # if current_sum > len(edges) - 1 + TOLERANCE:
-        # if current_sum > len(edges) - 1:
+        # add the cycle inequality as a cutting plain
         model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <= len(edges) - 1)
         cuts_added += 1
         print(f"Added inequality number {cuts_added}!")
