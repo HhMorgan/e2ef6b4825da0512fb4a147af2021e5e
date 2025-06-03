@@ -107,6 +107,8 @@ def execute_lp(args):
             else:
                 print("k-MST is valid")
 
+            print(f"Objective value: {model.ObjVal}")
+
             # draw graph for debugging purposes
             if args.show:
                 nx.draw(k_mst, with_labels=True)

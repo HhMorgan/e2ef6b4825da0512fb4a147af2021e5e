@@ -34,13 +34,6 @@ def lazy_constraint_callback(model: gp.Model, where):
         elif model._formulation == "dcc":
             find_violated_dcc_float(model)
 
-    # TODO In general: Add a cutting plane (strengthening inequality)
-    # x = model.cbGetNodeRel(model._x)
-    # rel = model.cbGetNodeRel(x)
-    # if rel[0] + rel[1] > 1.1:
-    #     model.cbCut(inequality)
-    #     model.cbCut(x[0] + x[1], GRB.LESS_EQUAL, 1)
-
 
 # def find_all_cycles(model: gp.Model):
 #     """
@@ -99,7 +92,7 @@ def find_violated_cec_int(model: gp.Model):
     try:
         C = nx.find_cycle(G)
         # Add lazy constraint to eliminate this cycle
-        model.cbLazy(gp.quicksum(x[i, j] + x[j, i] for i, j in C) <= len(C) - 1)
+        model.cbLazy(gp.quicksum(x[i, j] for i, j in C) <= len(C) - 1)
     except nx.NetworkXNoCycle:
         return
 
@@ -110,103 +103,95 @@ def find_violated_dcc_int(model: gp.Model):
 
 
 
-#===================================================
-# def find_violated_cec_float(model: gp.Model):
-#     """
-#     Find violated CEC constraints for fractional solutions.
-#     Uses heuristics to decide whether to add cuts or let Gurobi branch.
-#     """
-#     # Get current node information
-#     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
-#     current_obj = model.cbGet(GRB.Callback.MIPNODE_OBJBND)
-#
-#     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
-#     max_cuts = 5 if node_count < 100 else 2
-#
-#     # Check if we've been making progress with cuts
-#     if hasattr(model, '_last_bound'):
-#         bound_improvement = abs(current_obj - model._last_bound)
-#         if bound_improvement < 1e-4:  # Not much improvement
-#             max_cuts = 1  # Add fewer cuts
-#     model._last_bound = current_obj
-#
-#     digraph = model._graph.copy()
-#     x = model._x
-#
-#     # Store violations and their effectiveness
-#     violations = []
-#
-#     # Label all arcs with weight w_ij = 1 - x_ij
-#     for i, j in digraph.edges():
-#         val = model.cbGetNodeRel(x[i, j])
-#         val = min(1.0, val)  # cap at 1
-#         digraph[i][j]['weight'] = 1 - val
-#
-#     # Find violations but be selective about which to add
-#     for u, v, data in digraph.edges(data=True):
-#         if len(violations) >= max_cuts:
-#             break
-#
-#         path_cost, shortest_path = nx.single_source_dijkstra(
-#             digraph, source=v, target=u, weight='weight'
-#         )
-#         total_cost = path_cost + data['weight']
-#
-#         if total_cost < 1.0:
-#             violation_amount = 1.0 - total_cost
-#             edges_in_path = [(shortest_path[i], shortest_path[i + 1])
-#                              for i in range(len(shortest_path) - 1)]
-#
-#             # Store violation with its effectiveness score
-#             violations.append({
-#                 'edges': edges_in_path,
-#                 'violation': violation_amount,
-#                 'path': shortest_path
-#             })
-#
-#     # Sort by violation amount (most violated first)
-#     violations.sort(key=lambda x: x['violation'], reverse=True)
-#
-#     # Add only the most violated constraints
-#     cuts_added = 0
-#     for viol in violations[:max_cuts]:
-#         edges = viol['edges']
-#
-#         # Check if this cut would actually strengthen the bound
-#         current_sum = sum(model.cbGetNodeRel(x[i, j]) for i, j in edges)
-#         if current_sum > len(edges) - 1 + 1e-6:
-#             model.cbLazy(
-#                 gp.quicksum(x[i, j] for i, j in edges) <= len(edges) - 1
-#             )
-#             cuts_added += 1
-#
-#     # If no effective cuts found, let Gurobi branch
-#     return cuts_added
-
-#===================================================
-
-
+#======================--------=============================
 def find_violated_cec_float(model: gp.Model):
+    # Get current LP node information
+    node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
+    current_best_bound = model.cbGet(GRB.Callback.MIPNODE_OBJBND)
+
+    # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
+    max_cuts = 5 if node_count < 100 else 2
+
+    # Check if we've been making progress with cuts
+    # if hasattr(model, '_last_bound'):
+    #     bound_improvement = abs(current_best_bound - model._last_bound)
+    #     if bound_improvement < 1e-4:  # Not much improvement
+    #         max_cuts = 1  # Add fewer cuts
+    # model._last_bound = current_best_bound
+
     digraph = model._graph.copy()
     x = model._x
 
-    # Label all arcs in the digraph with weight w_ij = 1 - x_ij
-    for i, j in digraph.edges():
-        val = model.cbGetNodeRel(x[i, j])
-        val = 1 if val > 1 else val # cap value at 1 due to floating point tolerances
-        digraph[i][j]['weight'] = 1 - val  # Replace with your logic
+    # Store violations and their effectiveness
+    violations = []
 
-    # For each arc (u,v), find the cheapest path from v to u w.r.t weights w_ij
+    # Label all arcs with weight w_ij = 1 - x_ij
+    for i, j in digraph.edges():
+        val = min(1.0, model.cbGetNodeRel(x[i, j]))
+        digraph[i][j]['weight'] = 1 - val
+
+    # Find violations but be selective about which to add
     for u, v, data in digraph.edges(data=True):
+        # prevent excessively adding cutting plains
+        if len(violations) >= max_cuts:
+            break
+
         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
         total_cost = path_cost + data['weight']
 
-        # If any shortest path plus arc (u,v) has total weight 0, create a cycle-elimination constraint from this
-        # if total_cost < 1 + TOLERANCE:
-        if total_cost < 1:
-            print("Adding inequality!")
+        if total_cost < 1.0:
+            violation_amount = 1.0 - total_cost
             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
-            model.cbCut(gp.quicksum(x[i, j] + x[j, i] for (i, j) in edges_in_path) <= len(shortest_path) - 1)
+
+            # Store violation with its effectiveness score
+            violations.append({
+                'edges': edges_in_path,
+                'violation': violation_amount,
+                'path': shortest_path
+            })
+
+    # Sort by violation amount (most violated first)
+    violations.sort(key=lambda x: x['violation'], reverse=True)
+
+    # Add only the most violated constraints
+    cuts_added = 0
+    for viol in violations[:max_cuts]:
+        edges = viol['edges']
+
+        # Check if this cut would actually strengthen the bound
+        # current_sum = sum(model.cbGetNodeRel(x[i, j]) for i, j in edges)
+        # if current_sum > len(edges) - 1 + TOLERANCE:
+        # if current_sum > len(edges) - 1:
+        model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <= len(edges) - 1)
+        cuts_added += 1
+        print(f"Added inequality number {cuts_added}!")
+
+    # If no effective cuts found, let Gurobi branch
+    return cuts_added
+
+#===================================================
+
+
+# def find_violated_cec_float(model: gp.Model):
+#     digraph = model._graph.copy()
+#     x = model._x
+#
+#     # Label all arcs in the digraph with weight w_ij = 1 - x_ij
+#     for i, j in digraph.edges():
+#         val = min(1.0, model.cbGetNodeRel(x[i, j]))
+#         digraph[i][j]['weight'] = 1 - val  # Replace with your logic
+#
+#     # For each arc (u,v), find the cheapest path from v to u w.r.t weights w_ij
+#     for u, v, data in digraph.edges(data=True):
+#         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
+#         total_cost = path_cost + data['weight']
+#
+#         # If any shortest path plus arc (u,v) has total weight 0, create a cycle-elimination constraint from this
+#         # if total_cost < 1 + TOLERANCE:
+#         if total_cost < 1:
+#             print("Adding inequality!")
+#             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
+#             model.cbCut(gp.quicksum(x[i, j] + x[j, i] for (i, j) in edges_in_path) <= len(shortest_path) - 1)
 
 
 def find_violated_dcc_float(model: gp.Model):
@@ -242,19 +227,11 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         name="y",
         vtype=GRB.BINARY,
     )
-
-    if model._formulation in ["seq", "scf", "mcf"]:
-        x = model.addVars(
-            arcs_with_zero,
-            name="x",
-            vtype=GRB.BINARY
-        )
-    else:
-        x = model.addVars(
-            arcs,
-            name="x",
-            vtype=GRB.BINARY
-        )
+    x = model.addVars(
+        arcs_with_zero,
+        name="x",
+        vtype=GRB.BINARY
+    )
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
     model._x = x
@@ -364,8 +341,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
 
     elif model._formulation == "cec":
-        # TODO Implement CEC formulation
-
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
 
@@ -375,10 +350,12 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
                         "k_1_edges")
 
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
+
         # note: This is already covered by "edge_implies_vertices" and "one_incoming_edge"
         # model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
         #                 "k_vertices")
-        model.addConstrs((gp.quicksum(x[i, j] for i in digraph.predecessors(j)) == y[j]
+        model.addConstrs((gp.quicksum(x[i, j] for i in digraph_with_zero.predecessors(j)) == y[j]
                           for j in node_indices),
                          "one_incoming_edge")
 
