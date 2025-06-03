@@ -6,9 +6,6 @@ TOLERANCE: float = 1e-05
 
 
 def lazy_constraint_callback(model: gp.Model, where):
-    # note: you'll need to account for tolerances!
-    # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/concepts/modeling/tolerances.html
-
     # callback was invoked because the solver found an optimal integral solution
     if where == GRB.Callback.MIPSOL:
         # check integer solution for feasibility
@@ -122,7 +119,7 @@ def find_violated_cec_float(model: gp.Model):
         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
         total_cost = path_cost + data['weight']
 
-        if total_cost < 1.0:
+        if total_cost < 1.0 - TOLERANCE:
             violation_amount = 1.0 - total_cost
             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
 

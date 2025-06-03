@@ -134,7 +134,7 @@ def execute_lp(args):
                 "formulation": args.formulation.upper(),
                 "status": status_names[model.Status],
                 "objVal": model.ObjVal,
-                "bestBound": model.ObjBound,
+                "bestBound": round(model.ObjBound),
                 "gap": round(model.MIPGap, 4),
                 "runtime": f"{min(model.runtime, model.Params.TimeLimit):.3f}",
                 "n": round(model.NodeCount)
