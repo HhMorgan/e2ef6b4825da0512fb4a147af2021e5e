@@ -330,13 +330,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
         model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs if i < j),
                          "edge_one_direction")
-        # model.addConstr((x[i, j] == 0) or (x[j, i] == 0))
-        # for (i, j) in arcs:
-        #     if i < j in arcs:
-        #         model.addSOS(GRB.SOS_TYPE1, [x[i, j], x[j, i]])
-
-        model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs if i < j),
-                         "edge_one_direction")
 
         model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
                         "k_1_edges")

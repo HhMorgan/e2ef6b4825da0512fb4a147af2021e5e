@@ -62,6 +62,7 @@ if __name__ == '__main__':
     parser.add_argument("--instances", type=str, default="./instances/project", help="path to instance directory")
     parser.add_argument("--results", type=str, default="./results.csv", help="path to results file")
     parser.add_argument("--formulation", type=str, choices=["seq", "scf", "mcf", "cec", "dcc"], help="choose a specific formulation")
+    parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
     args = parser.parse_args()
 
     # if a specific formulation was chosen, append that formulation to the results file name
