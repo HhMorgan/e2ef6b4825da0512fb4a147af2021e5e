@@ -40,10 +40,70 @@ def lazy_constraint_callback(model: gp.Model, where):
     #     model.cbCut(x[0] + x[1], GRB.LESS_EQUAL, 1)
 
 
+# def find_all_cycles(model: gp.Model):
+#     """
+#     Find all cycles in the graph structure based on which x variables exist.
+#     Returns a list of cycles, where each cycle is a list of edges.
+#     """
+#     # Create a graph based on which variables exist in the model
+#     G = nx.Graph()
+#
+#     # Add edges based on which x variables are defined
+#     for (i, j), x_var in model._x.items():
+#         G.add_edge(i, j)
+#
+#     # Find all cycles in the graph
+#     all_cycles = []
+#
+#     try:
+#         # Method 1: Use cycle_basis to find all fundamental cycles
+#         cycle_basis = nx.cycle_basis(G)
+#
+#         for cycle_nodes in cycle_basis:
+#             # Convert node cycle to edge list
+#             cycle_edges = []
+#             for idx in range(len(cycle_nodes)):
+#                 u = cycle_nodes[idx]
+#                 v = cycle_nodes[(idx + 1) % len(cycle_nodes)]
+#
+#                 # Check which orientation exists in model._x
+#                 if (u, v) in model._x:
+#                     cycle_edges.append((u, v))
+#                 elif (v, u) in model._x:
+#                     cycle_edges.append((v, u))
+#                 else:
+#                     # This shouldn't happen if graph was built correctly
+#                     print(f"Warning: Edge ({u},{v}) not found in model variables")
+#
+#             if cycle_edges:
+#                 all_cycles.append(cycle_edges)
+#
+#     except Exception as e:
+#         print(f"Error finding cycles: {e}")
+#
+#     return all_cycles
+
 def find_violated_cec_int(model: gp.Model):
     # TODO Create subgraph with chosen arcs {(i,j) | x_ij = 1}
 
     # TODO Find a cycle in this subgraph and return a CEC for it
+    # Create a graph based on which variables exist (not their values)
+    # Build a graph
+    G = nx.Graph()
+    for (i, j), x_var in model._x.items():
+        val = model.cbGetSolution(x_var)
+        if val > 1e-5:
+            G.add_edge(i, j, weight=val)
+
+    # Detect cycles
+    try:
+        C = nx.find_cycle(G)
+    except nx.NetworkXNoCycle:
+        return
+
+    # Add lazy constraint to eliminate this cycle
+    model.cbLazy(gp.quicksum(model._x[i, j] + model._x[j, i] for i, j in C) <= len(C) - 1)
+
     pass
 
 
@@ -91,7 +151,8 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
     # common variables
     x = model.addVars(
-        arcs_with_zero,
+        # arcs_with_zero,
+        arcs,
         name="x",
         vtype=GRB.BINARY
     )
@@ -101,12 +162,13 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         vtype=GRB.BINARY,
     )
 
+
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
     model._x = x
     model._y = y
 
     # common constraints
-    model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
+    # model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
     # create model-specific variables and constraints
     if model._formulation == "seq":
@@ -209,7 +271,20 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
     elif model._formulation == "cec":
         # TODO Implement CEC formulation
 
-        model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1, "k_vertices")
+        model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
+                         "edge_implies_vertices")
+
+        model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs),
+                         "edge_one_direction")
+        #
+        model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
+                        "k_1_edges")
+
+        model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
+                        "k_vertices")
+        #
+        #
+        # model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1, "k_vertices")
 
     elif model._formulation == "dcc":
         # TODO Implement DCC formulation

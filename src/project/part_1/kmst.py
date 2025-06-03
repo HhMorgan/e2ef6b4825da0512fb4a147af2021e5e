@@ -111,6 +111,14 @@ def execute_lp(args):
             if args.show:
                 nx.draw(k_mst, with_labels=True)
                 plt.show()
+            # draw base graph for debugging purposes
+            if args.showOG:
+                nx.draw(G, with_labels=True)
+                plt.show()
+
+            if args.printArcs:
+                for (i, j), x_var in model._x.items():
+                    print(i,j,x_var)
         else:
             log(f"Optimization aborted [{status_names[model.Status]}]")
 
@@ -156,6 +164,8 @@ if __name__ == "__main__":
     parser.add_argument("--timelimit", type=int, default=3600, help="time limit (in seconds)")
     parser.add_argument("--memory-limit", type=float, default=8, help="memory limit (in GB)")
     parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
+    parser.add_argument("--showOG", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
+    parser.add_argument("--printArcs", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
     args = parser.parse_args()
 
     execute_lp(args)
