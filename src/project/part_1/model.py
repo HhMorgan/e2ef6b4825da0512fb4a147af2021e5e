@@ -21,6 +21,7 @@ def lazy_constraint_callback(model: gp.Model, where):
     elif where == GRB.Callback.MIPNODE and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL:
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
         if model._formulation == "cec":
+            kawai = 1
             find_violated_cec_float(model)
         elif model._formulation == "dcc":
             find_violated_dcc_float(model)
@@ -111,18 +112,23 @@ def find_violated_cec_float(model: gp.Model):
     # Label all arcs with weight w_ij = 1 - x_ij
     for i, j in digraph.edges():
         val = min(1.0, model.cbGetNodeRel(x[i, j])) # cap weight at 1
+        val_reverse = min(1.0, model.cbGetNodeRel(x[j, i]))  # cap weight at 1
         digraph[i][j]['weight'] = 1 - val
+        digraph[j][i]['weight'] = 1 - val_reverse
 
     # Find violations but be selective about which to add
     for u, v, data in digraph.edges(data=True):
         # prevent excessively adding cutting plains
         if len(violations) >= max_cuts:
             break
-
+        tmp_weight_storage = digraph[v][u]['weight']
+        del digraph[v][u]['weight']
         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
         total_cost = path_cost + data['weight']
+        digraph[v][u]['weight'] = tmp_weight_storage
 
-        if total_cost < 1.0:
+
+        if total_cost < 1.0 - TOLERANCE:
             violation_amount = 1.0 - total_cost
             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
 
@@ -142,9 +148,11 @@ def find_violated_cec_float(model: gp.Model):
         edges = viol['edges']
 
         # add the cycle inequality as a cutting plain
-        model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <= len(edges) - 1)
+        model.cbCut(gp.quicksum(x[i, j] + x[j, i] for i, j in edges) <= 2 * (len(edges) - 1))
+        # model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <=  (len(edges) - 1))
+        # model.cbCut(gp.quicksum( x[j, i] for i, j in edges) <= (len(edges) - 1))
         cuts_added += 1
-        print(f"Added inequality number {cuts_added}!")
+        # print(f"Added inequality number {cuts_added}!")
 
     # If no effective cuts found, let Gurobi branch
     return cuts_added
@@ -324,7 +332,14 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
 
-        model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs),
+        model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs if i < j),
+                         "edge_one_direction")
+        # model.addConstr((x[i, j] == 0) or (x[j, i] == 0))
+        # for (i, j) in arcs:
+        #     if i < j in arcs:
+        #         model.addSOS(GRB.SOS_TYPE1, [x[i, j], x[j, i]])
+
+        model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs if i < j),
                          "edge_one_direction")
 
         model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
