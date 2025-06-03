@@ -2,6 +2,7 @@ import gurobipy as gp
 import networkx as nx
 from gurobipy import GRB
 
+TOLERANCE: float = 1e-05
 
 def lazy_constraint_callback(model: gp.Model, where):
     # note: you'll need to account for tolerances!
@@ -89,22 +90,20 @@ def find_violated_cec_int(model: gp.Model):
     # TODO Find a cycle in this subgraph and return a CEC for it
     # Create a graph based on which variables exist (not their values)
     # Build a graph
+    x = model._x
     G = nx.Graph()
-    for (i, j), x_var in model._x.items():
+    for (i, j), x_var in x.items():
         val = model.cbGetSolution(x_var)
-        if val > 1e-5:
+        if val > 1 - TOLERANCE:
             G.add_edge(i, j, weight=val)
 
     # Detect cycles
     try:
         C = nx.find_cycle(G)
+        # Add lazy constraint to eliminate this cycle
+        model.cbLazy(gp.quicksum(x[i, j] + x[j, i] for i, j in C) <= len(C) - 1)
     except nx.NetworkXNoCycle:
         return
-
-    # Add lazy constraint to eliminate this cycle
-    model.cbLazy(gp.quicksum(model._x[i, j] + model._x[j, i] for i, j in C) <= len(C) - 1)
-
-    pass
 
 
 def find_violated_dcc_int(model: gp.Model):
@@ -150,25 +149,28 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
     model._graph = digraph  # add reference to the initial directed graph for use in CEC and DCC formulations
 
     # common variables
-    x = model.addVars(
-        # arcs_with_zero,
-        arcs,
-        name="x",
-        vtype=GRB.BINARY
-    )
     y = model.addVars(
         node_indices,
         name="y",
         vtype=GRB.BINARY,
     )
 
+    if model._formulation in ["seq", "scf", "mcf"]:
+        x = model.addVars(
+            arcs_with_zero,
+            name="x",
+            vtype=GRB.BINARY
+        )
+    else:
+        x = model.addVars(
+            arcs,
+            name="x",
+            vtype=GRB.BINARY
+        )
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
     model._x = x
     model._y = y
-
-    # common constraints
-    # model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
     # create model-specific variables and constraints
     if model._formulation == "seq":
@@ -187,6 +189,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
 
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
         # constraints for root node 0
         model.addConstr(v[0] == 0, "zero_is_root")
 
@@ -208,6 +211,8 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         )
 
         model.addConstr(gp.quicksum(f[0, j] for j in node_indices) == k, name="source_flow")
+
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
         model.addConstrs((gp.quicksum(f[i, j] for i in digraph_with_zero.predecessors(j)) -
                           gp.quicksum(f[j, i] for i in digraph_with_zero.successors(j)) == y[j]
@@ -241,6 +246,8 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
         model.addConstrs((gp.quicksum(f[0, j, v] for j in node_indices) <= y[v]
                           for v in node_indices), name="source_flow")
+
+        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
         model.addConstrs((gp.quicksum(f[i, v, v] for i in digraph_with_zero.predecessors(v)) -
                           gp.quicksum(f[v, j, v] for j in digraph_with_zero.successors(v)) == y[v]
@@ -280,11 +287,12 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
                         "k_1_edges")
 
+        # note: This is already covered by "edge_implies_vertices" and "one_incoming_edge"
         model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
                         "k_vertices")
-        #
-        #
-        # model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1, "k_vertices")
+        # model.addConstrs((gp.quicksum(x[i, j] for i in digraph.predecessors(j)) == y[j]
+        #                   for j in node_indices),
+        #                  "one_incoming_edge")
 
     elif model._formulation == "dcc":
         # TODO Implement DCC formulation
