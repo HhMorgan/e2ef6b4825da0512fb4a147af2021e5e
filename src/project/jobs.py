@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     # if a specific formulation was chosen, append that formulation to the results file name
     if args.formulation:
-        args.results = args.results.replace(".csv", f"_{args.formulation}.csv")
+        args.results = args.results.replace(".csv", f"_{args.formulation}_int.csv")
 
     # quick checks of the given paths
     if not os.path.exists(args.instances):
