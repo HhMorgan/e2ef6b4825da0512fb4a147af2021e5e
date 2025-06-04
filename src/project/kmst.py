@@ -117,15 +117,15 @@ def execute_lp(args):
                 nx.draw_kamada_kawai(k_mst, with_labels=True)
                 plt.show()
             # draw base graph for debugging purposes
-            if args.showOG:
-                nx.draw(G, with_labels=True)
-                plt.show()
-
-            if args.printArcs:
-                chosen_edges = list(k_mst.edges())
-                chosen_edges.sort()
-                for (i, j) in chosen_edges:
-                    print(f"({i},{j})")
+            # if args.showOG:
+            #     nx.draw(G, with_labels=True)
+            #     plt.show()
+            #
+            # if args.printArcs:
+            #     chosen_edges = list(k_mst.edges())
+            #     chosen_edges.sort()
+            #     for (i, j) in chosen_edges:
+            #         print(f"({i},{j})")
 
         else:
             log(f"Optimization aborted [{status_names[model.Status]}]")

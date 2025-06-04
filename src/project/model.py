@@ -2,7 +2,7 @@ import gurobipy as gp
 import networkx as nx
 from gurobipy import GRB
 
-from src.project.part_1.cuts import EPSILON
+from cuts import EPSILON
 
 
 def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph = None):
