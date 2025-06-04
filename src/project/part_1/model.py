@@ -55,9 +55,9 @@ def find_violated_dcc_int(model: gp.Model):
     # arr = []
     for i, j in digraph_with_zero.edges():
         x_var = model.cbGetSolution(x[i, j])
-        val = max(EPSILON, x_var)  # Ensure weight is always positive
+        # val = max(EPSILON, x_var)  # Ensure weight is always positive
         # print(val)
-        digraph_with_zero[i][j]['weight'] = val
+        digraph_with_zero[i][j]['weight'] = x_var
         # arr.append(val)
     # print(arr)
     for node in digraph.nodes():
@@ -69,10 +69,10 @@ def find_violated_dcc_int(model: gp.Model):
         # print(cut_val, partition)
         # if cut_val > 0 :
         #     print(cut_val, partition)
-        if cut_val < y_var - TOLERANCE:
+        if cut_val < y_var - TOLERANCE and node in partition[1]:
             # print(cut_val, partition)
             model.cbLazy(
-                gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= y_var - TOLERANCE)
+                gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in partition[0] and v in partition[1]) >= y_var - TOLERANCE)
     # return dcc
 
     pass
