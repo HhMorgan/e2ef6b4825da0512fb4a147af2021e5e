@@ -14,6 +14,7 @@ def lazy_constraint_callback(model: gp.Model, where):
         elif model._formulation == "dcc":
             find_violated_dcc_int(model)
 
+
     # callback was invoked because the solver found an optimal but fractional solution
     elif where == GRB.Callback.MIPNODE and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL:
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
@@ -62,10 +63,12 @@ def find_violated_dcc_int(model: gp.Model):
     # print(arr)
     for node in digraph.nodes():
         y_var = model.cbGetSolution(y[node])
+        if y_var <= EPSILON:
+            continue
         # print(node, y_var)
         # if node == source_vertex:
         #     continue
-        cut_val, partition = nx.minimum_cut(digraph_with_zero, source_vertex, node, capacity='weight')
+        cut_val, partition = nx.minimum_cut(digraph_with_zero, _s = source_vertex, _t = node, capacity='weight')
         # print(cut_val, partition)
         # if cut_val > 0 :
         #     print(cut_val, partition)
@@ -342,6 +345,9 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
                         "k_1_edges")
 
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
+
+        model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
+                                         "k_vertices")
 
         model.addConstrs((gp.quicksum(x[i, j] for i in digraph_with_zero.predecessors(j)) == y[j]
                           for j in node_indices),
