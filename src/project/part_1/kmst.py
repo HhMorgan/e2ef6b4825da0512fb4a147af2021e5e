@@ -1,24 +1,26 @@
 import argparse
 import csv
+import datetime
 import os
 import sys
-import datetime
 from pathlib import Path
 from xmlrpc.client import MAXINT
 
 import gurobipy as gp
-from gurobipy import GRB
 import matplotlib.pyplot as plt
 import networkx as nx
+from gurobipy import GRB
 from gurobipy._statusconst import StatusConstClass as SC
 
-from model import create_model, lazy_constraint_callback, get_selected_edge_ids
+from cuts import lazy_constraint_callback
+from model import create_model, get_selected_edge_ids
 from util import read_instance, write_solution
 
 
 def log(message: str) -> None:
     current_time = datetime.datetime.now().time()
     print(f"[{current_time.isoformat(timespec="seconds")}]: {message}", flush=True)
+
 
 def execute_lp(args):
     instance_name = Path(args.instance).stem
@@ -48,7 +50,7 @@ def execute_lp(args):
         # (see https://docs.gurobi.com/projects/optimizer/en/current/concepts/parameters.html)
         # model.Params.MIPFocus = 2
         # model.Params.OutputFlag = 0   # hide verbose gurobi output
-        model.Params.LogToConsole = 0   # hide verbose gurobi output
+        model.Params.LogToConsole = 0  # hide verbose gurobi output
         model.Params.LogFile = "gurobi.log"
 
         log(f"Building model [{model_name}]...")
@@ -115,20 +117,18 @@ def execute_lp(args):
                 nx.draw_kamada_kawai(k_mst, with_labels=True)
                 plt.show()
             # draw base graph for debugging purposes
-            # if args.showOG:
-            #     nx.draw(G, with_labels=True)
-            #     plt.show()
-            #
-            # if args.printArcs:
-            #     chosen_edges = list(k_mst.edges())
-            #     chosen_edges.sort()
-            #     # print(';'.join(map(lambda edge: f"({edge[0]},{edge[1]})", chosen_edges)))
-            #     for (i,j) in chosen_edges:
-            #         print(f"({i},{j})")
+            if args.showOG:
+                nx.draw(G, with_labels=True)
+                plt.show()
+
+            if args.printArcs:
+                chosen_edges = list(k_mst.edges())
+                chosen_edges.sort()
+                for (i, j) in chosen_edges:
+                    print(f"({i},{j})")
 
         else:
             log(f"Optimization aborted [{status_names[model.Status]}]")
-
 
         if args.results_file:
             # collect statistics
