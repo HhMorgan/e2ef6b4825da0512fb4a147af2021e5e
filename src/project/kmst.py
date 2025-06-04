@@ -116,16 +116,12 @@ def execute_lp(args):
             if args.show:
                 nx.draw_kamada_kawai(k_mst, with_labels=True)
                 plt.show()
-            # draw base graph for debugging purposes
-            # if args.showOG:
-            #     nx.draw(G, with_labels=True)
-            #     plt.show()
-            #
-            # if args.printArcs:
-            #     chosen_edges = list(k_mst.edges())
-            #     chosen_edges.sort()
-            #     for (i, j) in chosen_edges:
-            #         print(f"({i},{j})")
+            # print all arcs that were chosen for the k-MST
+            if args.print_arcs:
+                chosen_edges = list(k_mst.edges())
+                chosen_edges.sort()
+                for (i, j) in chosen_edges:
+                    print(f"({i},{j})")
 
         else:
             log(f"Optimization aborted [{status_names[model.Status]}]")
@@ -172,8 +168,7 @@ if __name__ == "__main__":
     parser.add_argument("--timelimit", type=int, default=3600, help="time limit (in seconds)")
     parser.add_argument("--memory-limit", type=float, default=8, help="memory limit (in GB)")
     parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
-    parser.add_argument("--showOG", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
-    parser.add_argument("--printArcs", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
+    parser.add_argument("--print-arcs", action=argparse.BooleanOptionalAction, help="print selected arcs")
     args = parser.parse_args()
 
     execute_lp(args)

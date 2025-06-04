@@ -1,9 +1,11 @@
+import argparse
 import math
 import os
 import sys
-import argparse
 from pathlib import Path
+
 from kmst import execute_lp
+
 
 class GurobiArguments:
     instance: str = ""
@@ -13,6 +15,7 @@ class GurobiArguments:
     threads: int = 1
     timelimit: int = 3600
     show: bool = False
+    print_arcs: bool = False
     results_file: str = ""
     solution_file: str = ""
     run_name: str = ""
@@ -61,7 +64,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Benchmarking procedure of ILP formulations for a k-MST")
     parser.add_argument("--instances", type=str, default="./instances/project", help="path to instance directory")
     parser.add_argument("--results", type=str, default="./results.csv", help="path to results file")
-    parser.add_argument("--formulation", type=str, choices=["seq", "scf", "mcf", "cec", "dcc"], help="choose a specific formulation")
+    parser.add_argument("--formulation", type=str, choices=["seq", "scf", "mcf", "cec", "dcc"],
+                        help="choose a specific formulation")
     parser.add_argument("--show", action=argparse.BooleanOptionalAction, help="draw graph in a debug view")
     args = parser.parse_args()
 
@@ -78,6 +82,6 @@ if __name__ == '__main__':
     if os.path.isdir(args.results):
         sys.exit("Given path for results file refers to a directory!")
 
-    open(args.results, 'w').close() # clear current file contents
+    open(args.results, 'w').close()  # clear current file contents
 
     run_jobs(args.instances, args.results, specific_formulation=args.formulation)
