@@ -119,8 +119,12 @@ def execute_lp(args):
             #     plt.show()
             #
             # if args.printArcs:
-            #     for (i, j), x_var in model._x.items():
-            #         print(i,j,x_var)
+            #     chosen_edges = list(k_mst.edges())
+            #     chosen_edges.sort()
+            #     # print(';'.join(map(lambda edge: f"({edge[0]},{edge[1]})", chosen_edges)))
+            #     for (i,j) in chosen_edges:
+            #         print(f"({i},{j})")
+
         else:
             log(f"Optimization aborted [{status_names[model.Status]}]")
 
@@ -133,8 +137,8 @@ def execute_lp(args):
                 "k": args.k,
                 "formulation": args.formulation.upper(),
                 "status": status_names[model.Status],
-                "objVal": model.ObjVal,
-                "bestBound": round(model.ObjBound),
+                "objVal": round(model.ObjVal),
+                "bestBound": round(model.ObjBound, 1),
                 "gap": round(model.MIPGap, 4),
                 "runtime": f"{min(model.runtime, model.Params.TimeLimit):.3f}",
                 "n": round(model.NodeCount)

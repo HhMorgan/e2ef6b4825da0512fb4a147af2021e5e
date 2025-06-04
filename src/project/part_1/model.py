@@ -95,9 +95,7 @@ def find_violated_cec_float(model: gp.Model):
         edges = viol['edges']
 
         # add the cycle inequality as a cutting plain
-        model.cbCut(gp.quicksum(x[i, j] + x[j, i] for i, j in edges) <= 2 * (len(edges) - 1))
-        # model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <=  (len(edges) - 1))
-        # model.cbCut(gp.quicksum( x[j, i] for i, j in edges) <= (len(edges) - 1))
+        model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <= len(edges) - 1 + TOLERANCE)
         cuts_added += 1
         # print(f"Added inequality number {cuts_added}!")
 
