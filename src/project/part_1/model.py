@@ -75,7 +75,7 @@ def find_violated_dcc_int(model: gp.Model):
         if cut_val < y_var - TOLERANCE and node in partition[1]:
             # print(cut_val, partition)
             model.cbLazy(
-                gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in partition[0] and v in partition[1]) >= y_var - TOLERANCE)
+                gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in partition[0] and v in partition[1]) >= y[node] - TOLERANCE)
     # return dcc
 
     pass
