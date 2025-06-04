@@ -77,9 +77,7 @@ def find_violated_cec_float(model: gp.Model):
 
     digraph = model._graph.copy()
     x = model._x
-
-    # Store violations and their effectiveness
-    violations = []
+    y = model._y
 
     # Label all arcs with weight w_ij = 1 - x_ij
     for i, j in digraph.edges():
@@ -92,6 +90,12 @@ def find_violated_cec_float(model: gp.Model):
         # prevent excessively adding cutting plains
         if cuts_added >= max_cuts:
             break
+
+        # only search for cycles connecting nodes that are actually part of the current k-MST solution
+        u_included = model.cbGetNodeRel(y[u]) > TOLERANCE
+        v_included = model.cbGetNodeRel(y[v]) > TOLERANCE
+        if not u_included and v_included:
+            continue
 
         # For each arc (u,v), find the cheapest path from v to u w.r.t weights w_ij
         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
@@ -108,7 +112,6 @@ def find_violated_cec_float(model: gp.Model):
                 # add the cycle inequality as a cutting plain
                 model.cbCut(gp.quicksum(x[i, j] for i, j in cycle) <= len(cycle) - 1)
                 cuts_added += 1
-                # print(f"Added inequality number {cuts_added}!")
 
 
 def find_violated_dcc_float(model: gp.Model):
@@ -133,7 +136,9 @@ def find_violated_dcc_float(model: gp.Model):
         # prevent excessively adding cutting plains
         if cuts_added >= max_cuts:
             break
+            
         y_value = model.cbGetNodeRel(y[target_node])
+        # trivial case: if y is 0 anyway (or close to it), we don't care about this vertex
         if y_value <= TOLERANCE:
             continue
 
