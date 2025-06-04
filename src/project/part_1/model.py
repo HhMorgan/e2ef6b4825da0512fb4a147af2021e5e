@@ -18,64 +18,19 @@ def lazy_constraint_callback(model: gp.Model, where):
     elif where == GRB.Callback.MIPNODE and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL:
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
         if model._formulation == "cec":
-            kawai = 1
             find_violated_cec_float(model)
         elif model._formulation == "dcc":
             find_violated_dcc_float(model)
 
 
-# def find_all_cycles(model: gp.Model):
-#     """
-#     Find all cycles in the graph structure based on which x variables exist.
-#     Returns a list of cycles, where each cycle is a list of edges.
-#     """
-#     # Create a graph based on which variables exist in the model
-#     G = nx.Graph()
-#
-#     # Add edges based on which x variables are defined
-#     for (i, j), x_var in model._x.items():
-#         G.add_edge(i, j)
-#
-#     # Find all cycles in the graph
-#     all_cycles = []
-#
-#     try:
-#         # Method 1: Use cycle_basis to find all fundamental cycles
-#         cycle_basis = nx.cycle_basis(G)
-#
-#         for cycle_nodes in cycle_basis:
-#             # Convert node cycle to edge list
-#             cycle_edges = []
-#             for idx in range(len(cycle_nodes)):
-#                 u = cycle_nodes[idx]
-#                 v = cycle_nodes[(idx + 1) % len(cycle_nodes)]
-#
-#                 # Check which orientation exists in model._x
-#                 if (u, v) in model._x:
-#                     cycle_edges.append((u, v))
-#                 elif (v, u) in model._x:
-#                     cycle_edges.append((v, u))
-#                 else:
-#                     # This shouldn't happen if graph was built correctly
-#                     print(f"Warning: Edge ({u},{v}) not found in model variables")
-#
-#             if cycle_edges:
-#                 all_cycles.append(cycle_edges)
-#
-#     except Exception as e:
-#         print(f"Error finding cycles: {e}")
-#
-#     return all_cycles
-
 def find_violated_cec_int(model: gp.Model):
-    # Create a graph based on which variables exist (not their values)
-    # Build a graph
+    # Create a graph including all edges who's x-value is (roughly) 1
     x = model._x
     G = nx.Graph()
     for (i, j), x_var in x.items():
         val = model.cbGetSolution(x_var)
         if val > 1 - TOLERANCE:
-            G.add_edge(i, j, weight=val)
+            G.add_edge(i, j)
 
     # Detect cycles
     try:
@@ -91,12 +46,10 @@ def find_violated_dcc_int(model: gp.Model):
     pass
 
 
-
 #======================--------=============================
 def find_violated_cec_float(model: gp.Model):
-    # Get current LP node information
+    # Check how deep we are in exploring LP nodes
     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
-
     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
     max_cuts = 5 if node_count < 100 else 2
 
@@ -109,34 +62,32 @@ def find_violated_cec_float(model: gp.Model):
     # Label all arcs with weight w_ij = 1 - x_ij
     for i, j in digraph.edges():
         val = min(1.0, model.cbGetNodeRel(x[i, j])) # cap weight at 1
-        val_reverse = min(1.0, model.cbGetNodeRel(x[j, i]))  # cap weight at 1
         digraph[i][j]['weight'] = 1 - val
-        digraph[j][i]['weight'] = 1 - val_reverse
 
     # Find violations but be selective about which to add
     for u, v, data in digraph.edges(data=True):
         # prevent excessively adding cutting plains
         if len(violations) >= max_cuts:
             break
-        tmp_weight_storage = digraph[v][u]['weight']
-        del digraph[v][u]['weight']
+
+        # For each arc (u,v), find the cheapest path from v to u w.r.t weights w_ij
         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
         total_cost = path_cost + data['weight']
-        digraph[v][u]['weight'] = tmp_weight_storage
-        
+
+        # If any shortest path plus arc (u,v) has total weight <1, create a cycle-elimination constraint from this
         if total_cost < 1.0 - TOLERANCE:
-            violation_amount = 1.0 - total_cost
+            violation_severity = 1.0 - total_cost
             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
 
             # Store violation with its effectiveness score
             violations.append({
                 'edges': edges_in_path,
-                'violation': violation_amount,
+                'severity': violation_severity,
                 'path': shortest_path
             })
 
-    # Sort by violation amount (most violated first)
-    violations.sort(key=lambda x: x['violation'], reverse=True)
+    # Sort by violation severity (most violated inequality first)
+    violations.sort(key=lambda x: x['severity'], reverse=True)
 
     # Add only the most violated constraints
     cuts_added = 0
@@ -152,31 +103,6 @@ def find_violated_cec_float(model: gp.Model):
 
     # If no effective cuts found, let Gurobi branch
     return cuts_added
-
-#===================================================
-
-
-# def find_violated_cec_float(model: gp.Model):
-#     digraph = model._graph.copy()
-#     x = model._x
-#
-#     # Label all arcs in the digraph with weight w_ij = 1 - x_ij
-#     for i, j in digraph.edges():
-#         val = min(1.0, model.cbGetNodeRel(x[i, j]))
-#         digraph[i][j]['weight'] = 1 - val  # Replace with your logic
-#
-#     # For each arc (u,v), find the cheapest path from v to u w.r.t weights w_ij
-#     for u, v, data in digraph.edges(data=True):
-#         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
-#         total_cost = path_cost + data['weight']
-#
-#         # If any shortest path plus arc (u,v) has total weight 0, create a cycle-elimination constraint from this
-#         # if total_cost < 1 + TOLERANCE:
-#         if total_cost < 1:
-#             print("Adding inequality!")
-#             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
-#             model.cbCut(gp.quicksum(x[i, j] + x[j, i] for (i, j) in edges_in_path) <= len(shortest_path) - 1)
-
 
 def find_violated_dcc_float(model: gp.Model):
     # TODO Something about finding a minimum cut (see slides) - use networkx mincut function for this
@@ -219,7 +145,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
     model._x = x
-    model._y = y
 
     # create model-specific variables and constraints
     if model._formulation == "seq":
