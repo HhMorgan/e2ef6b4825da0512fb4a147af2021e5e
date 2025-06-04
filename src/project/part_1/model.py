@@ -20,7 +20,8 @@ def lazy_constraint_callback(model: gp.Model, where):
         if model._formulation == "cec":
             find_violated_cec_float(model)
         elif model._formulation == "dcc":
-            find_violated_dcc_float(model)
+            # find_violated_dcc_float(model)
+            kawai = 1
 
 
 def find_violated_cec_int(model: gp.Model):
@@ -43,6 +44,30 @@ def find_violated_cec_int(model: gp.Model):
 
 def find_violated_dcc_int(model: gp.Model):
     # add your DCC separation code here
+    # find_violated_dcc_float(model)
+    digraph_with_zero = model._digraph_with_zero.copy()
+    digraph = model._graph.copy()
+    x = model._x
+    y = model._y
+    source_vertex = 0
+    EPSILON = 1e-6  # Small positive value
+    # Label all arcs with weight w_ij = 1 - x_ij
+    for i, j in digraph_with_zero.edges():
+        x_var = model.cbGetSolution(x[i, j])
+        # val = max(x_var, EPSILON)  # Ensure weight is always positive
+        # print(val)
+        digraph_with_zero[i][j]['weight'] = x_var
+    for node in digraph.nodes():
+        # if node == source_vertex:
+        #     continue
+        cut_val, partition = nx.minimum_cut(digraph_with_zero, source_vertex, node, capacity='weight')
+        # print(cut_val, partition)
+        print(node)
+        if cut_val < 2 - TOLERANCE:
+            model.cbLazy(
+                gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= y[node])
+    # return dcc
+
     pass
 
 
@@ -106,14 +131,25 @@ def find_violated_cec_float(model: gp.Model):
 
 def find_violated_dcc_float(model: gp.Model):
     # TODO Something about finding a minimum cut (see slides) - use networkx mincut function for this
-
+    digraph = model._graph.copy()
+    x = model._x
+    source_vertex = list(digraph.nodes())[0]
+    # Label all arcs with weight w_ij = 1 - x_ij
+    for i, j in digraph.edges():
+        val = min(1.0, model.cbGetNodeRel(x[i, j]))  # cap weight at 1
+        digraph[i][j]['weight'] = val
+    for node in digraph.nodes():
+        cut_val, partition = nx.minimum_cut(digraph, source_vertex, node, capacity='weight')
+        if cut_val < 2 - TOLERANCE:
+            model.cbLazy( gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= 1)
     # return dcc
     pass
 
 
 def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph = None):
     node_indices = [n for n in graph]  # grab the ID of every node in the graph
-
+    # print(graph.nodes)
+    # print(list(graph.nodes())[0])
     reversed_arcs = {(j, i) for (i, j) in graph.edges}
     arcs = reversed_arcs.union(set(graph.edges))  # edges in graph and their inverted counterpart
     arcs_with_zero = arcs.union((0, j) for j in node_indices)
@@ -130,6 +166,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
     digraph_with_zero.add_edges_from((0, j) for j in node_indices)
 
     model._graph = digraph  # add reference to the initial directed graph for use in CEC and DCC formulations
+    model._digraph_with_zero = digraph_with_zero
 
     # common variables
     y = model.addVars(
@@ -145,6 +182,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
     # add reference to relevant variables for later use in callbacks (CEC,DCC)
     model._x = x
+    model._y = y
 
     # create model-specific variables and constraints
     if model._formulation == "seq":
