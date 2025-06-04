@@ -58,14 +58,15 @@ def find_violated_dcc_int(model: gp.Model):
         # print(val)
         digraph_with_zero[i][j]['weight'] = x_var
     for node in digraph.nodes():
+        y_var = model.cbGetSolution(y[node])
         # if node == source_vertex:
         #     continue
         cut_val, partition = nx.minimum_cut(digraph_with_zero, source_vertex, node, capacity='weight')
         # print(cut_val, partition)
-        print(node)
+        print(y_var)
         if cut_val < 2 - TOLERANCE:
             model.cbLazy(
-                gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= y[node])
+                gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= y_var)
     # return dcc
 
     pass
