@@ -52,21 +52,27 @@ def find_violated_dcc_int(model: gp.Model):
     source_vertex = 0
     EPSILON = 1e-6  # Small positive value
     # Label all arcs with weight w_ij = 1 - x_ij
+    # arr = []
     for i, j in digraph_with_zero.edges():
         x_var = model.cbGetSolution(x[i, j])
-        # val = max(x_var, EPSILON)  # Ensure weight is always positive
+        val = max(EPSILON, x_var)  # Ensure weight is always positive
         # print(val)
-        digraph_with_zero[i][j]['weight'] = x_var
+        digraph_with_zero[i][j]['weight'] = val
+        # arr.append(val)
+    # print(arr)
     for node in digraph.nodes():
         y_var = model.cbGetSolution(y[node])
+        # print(node, y_var)
         # if node == source_vertex:
         #     continue
         cut_val, partition = nx.minimum_cut(digraph_with_zero, source_vertex, node, capacity='weight')
         # print(cut_val, partition)
-        print(y_var)
-        if cut_val < 2 - TOLERANCE:
+        # if cut_val > 0 :
+        #     print(cut_val, partition)
+        if cut_val < y_var - TOLERANCE:
+            # print(cut_val, partition)
             model.cbLazy(
-                gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= y_var)
+                gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= y_var - TOLERANCE)
     # return dcc
 
     pass
@@ -127,17 +133,49 @@ def find_violated_cec_float(model: gp.Model):
 
 def find_violated_dcc_float(model: gp.Model):
     # TODO Something about finding a minimum cut (see slides) - use networkx mincut function for this
+    digraph_with_zero = model._digraph_with_zero.copy()
     digraph = model._graph.copy()
     x = model._x
-    source_vertex = list(digraph.nodes())[0]
+    y = model._y
+    source_vertex = 0
+    EPSILON = 1e-6  # Small positive value
     # Label all arcs with weight w_ij = 1 - x_ij
-    for i, j in digraph.edges():
-        val = min(1.0, model.cbGetNodeRel(x[i, j]))  # cap weight at 1
-        digraph[i][j]['weight'] = val
+    # arr = []
+    for i, j in digraph_with_zero.edges():
+        x_var = model.cbGetNodeRel(x[i, j])
+        val = max(EPSILON, x_var)  # Ensure weight is always positive
+        # print(val)
+        digraph_with_zero[i][j]['weight'] = val
+        # arr.append(val)
+    # print(arr)
     for node in digraph.nodes():
-        cut_val, partition = nx.minimum_cut(digraph, source_vertex, node, capacity='weight')
-        if cut_val < 2 - TOLERANCE:
-            model.cbLazy( gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= 1)
+        y_var = model.cbGetNodeRel(y[node])
+        # print(node, y_var)
+        # if node == source_vertex:
+        #     continue
+        cut_val, partition = nx.minimum_cut(digraph_with_zero, source_vertex, node, capacity='weight')
+        # print(cut_val, partition)
+        # if cut_val > 0 :
+        #     print(cut_val, partition)
+        if cut_val < y_var - TOLERANCE:
+            # print(cut_val, partition)
+            model.cbLazy(
+                gp.quicksum(x[u, v] for u, v in digraph.edges() if
+                            u in partition[0] and v in partition[1]) >= y_var - TOLERANCE)
+    # return dcc
+
+
+    # digraph = model._graph.copy()
+    # x = model._x
+    # source_vertex = list(digraph.nodes())[0]
+    # # Label all arcs with weight w_ij = 1 - x_ij
+    # for i, j in digraph.edges():
+    #     val = min(1.0, model.cbGetNodeRel(x[i, j]))  # cap weight at 1
+    #     digraph[i][j]['weight'] = val
+    # for node in digraph.nodes():
+    #     cut_val, partition = nx.minimum_cut(digraph, source_vertex, node, capacity='weight')
+    #     if cut_val < 2 - TOLERANCE:
+    #         model.cbLazy( gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= 1)
     # return dcc
     pass
 
