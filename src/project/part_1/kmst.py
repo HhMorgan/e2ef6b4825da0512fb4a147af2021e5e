@@ -4,6 +4,7 @@ import os
 import sys
 import datetime
 from pathlib import Path
+from xmlrpc.client import MAXINT
 
 import gurobipy as gp
 from gurobipy import GRB
@@ -137,8 +138,9 @@ def execute_lp(args):
                 "k": args.k,
                 "formulation": args.formulation.upper(),
                 "status": status_names[model.Status],
-                "objVal": round(model.ObjVal),
-                "bestBound": round(model.ObjBound, 1),
+                # beware: Rounding infinity throws an error
+                "objVal": model.ObjVal if model.ObjVal > MAXINT else round(model.ObjVal),
+                "bestBound": model.ObjBound if model.ObjBound > MAXINT else round(model.ObjBound, 1),
                 "gap": round(model.MIPGap, 4),
                 "runtime": f"{min(model.runtime, model.Params.TimeLimit):.3f}",
                 "n": round(model.NodeCount)
