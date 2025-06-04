@@ -94,7 +94,7 @@ def find_violated_cec_float(model: gp.Model):
         # only search for cycles connecting nodes that are actually part of the current k-MST solution
         u_included = model.cbGetNodeRel(y[u]) > TOLERANCE
         v_included = model.cbGetNodeRel(y[v]) > TOLERANCE
-        if not u_included and v_included:
+        if not (u_included and v_included):
             continue
 
         # For each arc (u,v), find the cheapest path from v to u w.r.t weights w_ij
