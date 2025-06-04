@@ -20,9 +20,8 @@ def lazy_constraint_callback(model: gp.Model, where):
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
         if model._formulation == "cec":
             find_violated_cec_float(model)
-        elif model._formulation == "dcc":
-            # find_violated_dcc_float(model)
-            kawai = 1
+        # elif model._formulation == "dcc":
+        #     find_violated_dcc_float(model)
 
 
 def find_violated_cec_int(model: gp.Model):
@@ -45,40 +44,28 @@ def find_violated_cec_int(model: gp.Model):
 
 def find_violated_dcc_int(model: gp.Model):
     # add your DCC separation code here
-    # find_violated_dcc_float(model)
     digraph_with_zero = model._digraph_with_zero.copy()
     digraph = model._graph.copy()
     x = model._x
     y = model._y
     source_vertex = 0
-    EPSILON = 1e-6  # Small positive value
-    # Label all arcs with weight w_ij = 1 - x_ij
-    # arr = []
+
+    # Label all arcs with weight w_ij = x_ij
     for i, j in digraph_with_zero.edges():
         x_var = model.cbGetSolution(x[i, j])
-        # val = max(EPSILON, x_var)  # Ensure weight is always positive
-        # print(val)
-        digraph_with_zero[i][j]['weight'] = x_var
-        # arr.append(val)
-    # print(arr)
-    for node in digraph.nodes():
-        y_var = model.cbGetSolution(y[node])
-        if y_var <= EPSILON:
-            continue
-        # print(node, y_var)
-        # if node == source_vertex:
-        #     continue
-        cut_val, partition = nx.minimum_cut(digraph_with_zero, _s = source_vertex, _t = node, capacity='weight')
-        # print(cut_val, partition)
-        # if cut_val > 0 :
-        #     print(cut_val, partition)
-        if cut_val < y_var - TOLERANCE and node in partition[1]:
-            # print(cut_val, partition)
-            model.cbLazy(
-                gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in partition[0] and v in partition[1]) >= y[node] - TOLERANCE)
-    # return dcc
+        digraph_with_zero[i][j]['weight'] = min(1.0, max(x_var, 0.0))
 
-    pass
+    for target_node in digraph.nodes():
+        y_value = model.cbGetSolution(y[target_node])
+        if y_value <= TOLERANCE:
+            continue
+
+        cut_val, (s, t) = nx.minimum_cut(digraph_with_zero, _s = source_vertex, _t = target_node, capacity='weight')
+        if cut_val < y_value - TOLERANCE and target_node in t:
+            model.cbLazy(
+                gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in s and v in t)
+                >= y[target_node]
+            )
 
 
 #======================--------=============================
