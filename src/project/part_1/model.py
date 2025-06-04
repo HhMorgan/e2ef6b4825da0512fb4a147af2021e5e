@@ -22,7 +22,6 @@ def lazy_constraint_callback(model: gp.Model, where):
             find_violated_cec_float(model)
         elif model._formulation == "dcc":
             find_violated_dcc_float(model)
-            #MY KAWAI VARIABLE!!! >:(
 
 
 def find_violated_cec_int(model: gp.Model):
@@ -113,9 +112,6 @@ def find_violated_cec_float(model: gp.Model):
 
 
 def find_violated_dcc_float(model: gp.Model):
-    # TODO Something about finding a minimum cut (see slides) - use networkx mincut function for this
-    # add your DCC separation code here
-    #============----========
     # Check how deep we are in exploring LP nodes
     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
@@ -125,12 +121,7 @@ def find_violated_dcc_float(model: gp.Model):
     digraph_with_zero = model._digraph_with_zero.copy()
     x = model._x
     y = model._y
-
-
     source_vertex = 0
-
-    # Store violations and their effectiveness
-    violations = []
 
     cuts_added = 0
     # Label all arcs with weight w_ij = x_ij
@@ -321,7 +312,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
                          "one_incoming_edge")
 
     elif model._formulation == "dcc":
-        # TODO Implement DCC formulation
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
 
@@ -342,11 +332,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
 
 def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
-    # note that you may need to account for tolerances
-    # see, e.g., https://docs.gurobi.com/projects/optimizer/en/current/concepts/modeling/tolerances.html
-
-    # https://docs.gurobi.com/projects/optimizer/en/current/concepts/attributes/examples.html
-
     reversed_arcs = {(j, i) for (i, j) in graph.edges}
     arcs = reversed_arcs.union(set(graph.edges))  # edges in graph and their inverted counterpart
 
@@ -358,7 +343,7 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
         for (i, j) in arcs:
             x_ij = model.getVarByName(f'x[{i},{j}]')
 
-            if x_ij.X == 1:
+            if x_ij.X + TOLERANCE >= 1:
                 edge_id: int = int(graph.edges[i, j]['id'])
                 selected_edges.append(edge_id)
     # else:
