@@ -333,9 +333,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
-        model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
-                                         "k_vertices")
-
         model.addConstrs((gp.quicksum(x[i, j] for i in digraph_with_zero.predecessors(j)) == y[j]
                           for j in node_indices),
                          "one_incoming_edge")
