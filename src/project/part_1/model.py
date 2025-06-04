@@ -291,27 +291,8 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
                         name="take_k_edges")
 
-
-    elif model._formulation == "cec":
-        model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
-                         "edge_implies_vertices")
-
-        model.addConstrs((x[i, j] + x[j, i] <= 1 for (i, j) in arcs if i < j),
-                         "edge_one_direction")
-
-        model.addConstr(gp.quicksum(x[i, j] for (i, j) in arcs) == k - 1,
-                        "k_1_edges")
-
-        model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
-
-        # note: This is already covered by "edge_implies_vertices" and "one_incoming_edge"
-        # model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
-        #                 "k_vertices")
-        model.addConstrs((gp.quicksum(x[i, j] for i in digraph_with_zero.predecessors(j)) == y[j]
-                          for j in node_indices),
-                         "one_incoming_edge")
-
-    elif model._formulation == "dcc":
+    # CEC and DCC share their base constraints
+    elif model._formulation in ["cec", "dcc"]:
         model.addConstrs((y[i] + y[j] >= 2 * x[i, j] for (i, j) in arcs),
                          "edge_implies_vertices")
 
@@ -326,6 +307,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
         model.addConstrs((gp.quicksum(x[i, j] for i in digraph_with_zero.predecessors(j)) == y[j]
                           for j in node_indices),
                          "one_incoming_edge")
+
 
     # common objective function
     model.setObjective(gp.quicksum(x[i, j] * graph.edges[i, j]['cost'] for (i, j) in arcs), GRB.MINIMIZE)
