@@ -76,7 +76,7 @@ def find_violated_cec_float(model: gp.Model):
     # Check how deep we are in exploring LP nodes
     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
-    max_cuts = 5 if node_count < 100 else 2
+    max_cuts = 4 if node_count < 100 else 2
 
     digraph = model._graph.copy()
     x = model._x
@@ -99,16 +99,15 @@ def find_violated_cec_float(model: gp.Model):
         path_cost, shortest_path = nx.single_source_dijkstra(digraph, source=v, target=u, weight='weight')
         total_cost = path_cost + data['weight']
 
-        # If any shortest path plus arc (u,v) has total weight <1, create a cycle-elimination constraint from this
+        # If any shortest path plus arc (u,v) has total weight <1, record a violation
         if total_cost < 1.0 - TOLERANCE:
-            violation_severity = 1.0 - total_cost
+            violation_severity = 1.0 - total_cost # by how much is the cycle constraint violated
             edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
 
             # Store violation with its effectiveness score
             violations.append({
-                'edges': edges_in_path,
+                'cycle': edges_in_path + [(u,v)],
                 'severity': violation_severity,
-                'path': shortest_path
             })
 
     # Sort by violation severity (most violated inequality first)
@@ -117,17 +116,13 @@ def find_violated_cec_float(model: gp.Model):
     # Add only the most violated constraints
     cuts_added = 0
     for viol in violations[:max_cuts]:
-        edges = viol['edges']
+        cycle = viol['cycle']
 
         # add the cycle inequality as a cutting plain
-        model.cbCut(gp.quicksum(x[i, j] + x[j, i] for i, j in edges) <= 2 * (len(edges) - 1))
-        # model.cbCut(gp.quicksum(x[i, j] for i, j in edges) <=  (len(edges) - 1))
-        # model.cbCut(gp.quicksum( x[j, i] for i, j in edges) <= (len(edges) - 1))
+        model.cbCut(gp.quicksum(x[i, j] for i, j in cycle) <= len(cycle) - 1)
         cuts_added += 1
         # print(f"Added inequality number {cuts_added}!")
 
-    # If no effective cuts found, let Gurobi branch
-    return cuts_added
 
 def find_violated_dcc_float(model: gp.Model):
     # TODO Something about finding a minimum cut (see slides) - use networkx mincut function for this
@@ -319,9 +314,6 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
         model.addConstr(gp.quicksum(x[0, j] for j in node_indices) == 1, name="one_edge_from_root")
 
-        # note: This is already covered by "edge_implies_vertices" and "one_incoming_edge"
-        # model.addConstr(gp.quicksum(y[i] for i in node_indices) == k,
-        #                 "k_vertices")
         model.addConstrs((gp.quicksum(x[i, j] for i in digraph_with_zero.predecessors(j)) == y[j]
                           for j in node_indices),
                          "one_incoming_edge")
