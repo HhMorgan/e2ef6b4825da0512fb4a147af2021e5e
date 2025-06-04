@@ -19,7 +19,6 @@ def lazy_constraint_callback(model: gp.Model, where):
     # increment the counter for the total number of added cutting planes
     model._cuts += new_cuts
 
-
 def find_violated_cec_int(model: gp.Model) -> int:
     # Create a graph including all edges who's x-value is (roughly) 1
     x = model._x
