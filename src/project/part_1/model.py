@@ -20,8 +20,9 @@ def lazy_constraint_callback(model: gp.Model, where):
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
         if model._formulation == "cec":
             find_violated_cec_float(model)
-        # elif model._formulation == "dcc":
-        #     find_violated_dcc_float(model)
+        elif model._formulation == "dcc":
+            find_violated_dcc_float(model)
+            #MY KAWAI VARIABLE!!! >:(
 
 
 def find_violated_cec_int(model: gp.Model):
@@ -113,51 +114,50 @@ def find_violated_cec_float(model: gp.Model):
 
 def find_violated_dcc_float(model: gp.Model):
     # TODO Something about finding a minimum cut (see slides) - use networkx mincut function for this
-    digraph_with_zero = model._digraph_with_zero.copy()
+    # add your DCC separation code here
+    #============----========
+    # Check how deep we are in exploring LP nodes
+    node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
+    # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
+    max_cuts = 5 if node_count < 100 else 2
+
     digraph = model._graph.copy()
+    digraph_with_zero = model._digraph_with_zero.copy()
     x = model._x
     y = model._y
+
+
     source_vertex = 0
-    EPSILON = 1e-6  # Small positive value
-    # Label all arcs with weight w_ij = 1 - x_ij
-    # arr = []
+
+    # Store violations and their effectiveness
+    violations = []
+
+    cuts_added = 0
+    # Label all arcs with weight w_ij = x_ij
     for i, j in digraph_with_zero.edges():
         x_var = model.cbGetNodeRel(x[i, j])
-        val = max(EPSILON, x_var)  # Ensure weight is always positive
-        # print(val)
-        digraph_with_zero[i][j]['weight'] = val
-        # arr.append(val)
-    # print(arr)
-    for node in digraph.nodes():
-        y_var = model.cbGetNodeRel(y[node])
-        # print(node, y_var)
-        # if node == source_vertex:
-        #     continue
-        cut_val, partition = nx.minimum_cut(digraph_with_zero, source_vertex, node, capacity='weight')
-        # print(cut_val, partition)
-        # if cut_val > 0 :
-        #     print(cut_val, partition)
-        if cut_val < y_var - TOLERANCE:
-            # print(cut_val, partition)
-            model.cbLazy(
-                gp.quicksum(x[u, v] for u, v in digraph.edges() if
-                            u in partition[0] and v in partition[1]) >= y_var - TOLERANCE)
-    # return dcc
+        digraph_with_zero[i][j]['weight'] = min(1.0, max(x_var, 0.0))
 
+    for target_node in digraph.nodes():
+        # prevent excessively adding cutting plains
+        if cuts_added >= max_cuts:
+            break
+        y_value = model.cbGetNodeRel(y[target_node])
+        if y_value <= TOLERANCE:
+            continue
 
-    # digraph = model._graph.copy()
-    # x = model._x
-    # source_vertex = list(digraph.nodes())[0]
-    # # Label all arcs with weight w_ij = 1 - x_ij
-    # for i, j in digraph.edges():
-    #     val = min(1.0, model.cbGetNodeRel(x[i, j]))  # cap weight at 1
-    #     digraph[i][j]['weight'] = val
-    # for node in digraph.nodes():
-    #     cut_val, partition = nx.minimum_cut(digraph, source_vertex, node, capacity='weight')
-    #     if cut_val < 2 - TOLERANCE:
-    #         model.cbLazy( gp.quicksum(x[u, v] for u, v in digraph.edges() if u in partition[0] and v in partition[1]) >= 1)
-    # return dcc
-    pass
+        cut_val, (s, t) = nx.minimum_cut(digraph_with_zero, _s=source_vertex, _t=target_node, capacity='weight')
+        if cut_val < y_value - TOLERANCE and target_node in t:
+            violation_severity = 1.0 - cut_val  # by how much is the connectivity constraint violated
+            # Only add constraints that are violated significantly
+            if violation_severity >= 0.4:
+                # add the connectivity inequality as a cutting plain
+                model.cbCut(
+                    gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in s and v in t)
+                    >= y[target_node]
+                )
+                cuts_added += 1
+
 
 
 def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph = None):
