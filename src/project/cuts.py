@@ -4,26 +4,32 @@ from gurobipy import GRB
 
 EPSILON: float = 1e-05
 
+
 def lazy_constraint_callback(model: gp.Model, where):
+    new_cuts: int = 0
+
     # callback was invoked because the solver found an optimal integral solution
     if where == GRB.Callback.MIPSOL:
         # check integer solution for feasibility
         if model._formulation == "cec":
-            find_violated_cec_int(model)
+            new_cuts = find_violated_cec_int(model)
         elif model._formulation == "dcc":
-            find_violated_dcc_int(model)
+            new_cuts = find_violated_dcc_int(model)
 
 
     # callback was invoked because the solver found an optimal but fractional solution
     elif where == GRB.Callback.MIPNODE and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL:
         # check fractional solution to find violated CECs/DCCs to strengthen the bound
         if model._formulation == "cec":
-            find_violated_cec_float(model)
+            new_cuts = find_violated_cec_float(model)
         elif model._formulation == "dcc":
-            find_violated_dcc_float(model)
+            new_cuts = find_violated_dcc_float(model)
+
+    # increment the counter for the total number of added cutting planes
+    model._cuts += new_cuts
 
 
-def find_violated_cec_int(model: gp.Model):
+def find_violated_cec_int(model: gp.Model) -> int:
     # Create a graph including all edges who's x-value is (roughly) 1
     x = model._x
     G = nx.Graph()
@@ -37,17 +43,19 @@ def find_violated_cec_int(model: gp.Model):
         C = nx.find_cycle(G)
         # Add lazy constraint to eliminate this cycle
         model.cbLazy(gp.quicksum(x[i, j] + x[j, i] for i, j in C) <= len(C) - 1)
+        return 1
     except nx.NetworkXNoCycle:
-        return
+        return 0
 
 
-def find_violated_dcc_int(model: gp.Model):
+def find_violated_dcc_int(model: gp.Model) -> int:
     # add your DCC separation code here
     digraph_with_zero = model._digraph_with_zero.copy()
     digraph = model._graph.copy()
     x = model._x
     y = model._y
     source_vertex = 0
+    cuts_added = 0
 
     # Label all arcs with weight w_ij = x_ij
     for i, j in digraph_with_zero.edges():
@@ -65,9 +73,12 @@ def find_violated_dcc_int(model: gp.Model):
                 gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in s and v in t)
                 >= y[target_node]
             )
+            cuts_added += 1
+
+    return cuts_added
 
 
-def find_violated_cec_float(model: gp.Model):
+def find_violated_cec_float(model: gp.Model) -> int:
     # Check how deep we are in exploring LP nodes
     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
@@ -85,7 +96,7 @@ def find_violated_cec_float(model: gp.Model):
     # Find violations but be selective about which to add
     cuts_added = 0
     for u, v, data in digraph.edges(data=True):
-        # prevent excessively adding cutting plains
+        # prevent excessively adding cutting planes
         if cuts_added >= max_cuts:
             break
 
@@ -107,12 +118,14 @@ def find_violated_cec_float(model: gp.Model):
                 edges_in_path = [(shortest_path[i], shortest_path[i + 1]) for i in range(len(shortest_path) - 1)]
                 cycle = edges_in_path + [(u, v)]
 
-                # add the cycle inequality as a cutting plain
+                # add the cycle inequality as a cutting plane
                 model.cbCut(gp.quicksum(x[i, j] for i, j in cycle) <= len(cycle) - 1)
                 cuts_added += 1
 
+    return cuts_added
 
-def find_violated_dcc_float(model: gp.Model):
+
+def find_violated_dcc_float(model: gp.Model) -> int:
     # Check how deep we are in exploring LP nodes
     node_count = model.cbGet(GRB.Callback.MIPNODE_NODCNT)
     # Heuristic: Limit cuts at deeper nodes to avoid over-cutting
@@ -131,7 +144,7 @@ def find_violated_dcc_float(model: gp.Model):
         digraph_with_zero[i][j]['weight'] = min(1.0, max(x_var, 0.0))
 
     for target_node in digraph.nodes():
-        # prevent excessively adding cutting plains
+        # prevent excessively adding cutting planes
         if cuts_added >= max_cuts:
             break
 
@@ -145,9 +158,11 @@ def find_violated_dcc_float(model: gp.Model):
             violation_severity = 1.0 - cut_val  # by how much is the connectivity constraint violated
             # Only add constraints that are violated significantly
             if violation_severity >= 0.4:
-                # add the connectivity inequality as a cutting plain
+                # add the connectivity inequality as a cutting plane
                 model.cbCut(
                     gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in s and v in t)
                     >= y[target_node]
                 )
                 cuts_added += 1
+
+    return cuts_added

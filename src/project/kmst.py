@@ -139,7 +139,8 @@ def execute_lp(args):
                 "bestBound": model.ObjBound if model.ObjBound > MAXINT else round(model.ObjBound, 1),
                 "gap": round(model.MIPGap, 4),
                 "runtime": f"{min(model.runtime, model.Params.TimeLimit):.3f}",
-                "n": round(model.NodeCount)
+                "n": round(model.NodeCount),
+                "cuts": model._cuts
             }
 
             with open(args.results_file, "a", encoding="utf-8", newline='') as f:
