@@ -25,6 +25,7 @@ def create_model(model: gp.Model, graph: nx.Graph, k: int, *, digraph: nx.Graph 
 
     model._graph = digraph  # add reference to the initial directed graph for use in CEC and DCC formulations
     model._digraph_with_zero = digraph_with_zero
+    model._cuts = 0 # counter to keep track of the number of added cutting planes
 
     # common variables
     x = model.addVars(
@@ -171,17 +172,11 @@ def get_selected_edge_ids(model: gp.Model, graph: nx.Graph) -> list[int]:
 
     selected_edges: list[int] = []
     if model.SolCount > 0:
-        # for v in sorted(model.getVars(), key=lambda x: x.VarName):
-        #     print(f"{v.VarName:<8} = {v.X}")
-
         for (i, j) in arcs:
             x_ij = model.getVarByName(f'x[{i},{j}]')
 
             if x_ij.X + EPSILON >= 1:
                 edge_id: int = int(graph.edges[i, j]['id'])
                 selected_edges.append(edge_id)
-    # else:
-    #     for v in sorted(model.getVars(), key=lambda x: x.VarName):
-    #         print(v.VarName)
 
     return selected_edges

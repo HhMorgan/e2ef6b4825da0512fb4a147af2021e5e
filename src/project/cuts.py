@@ -4,16 +4,23 @@ from gurobipy import GRB
 
 EPSILON: float = 1e-05
 
+
 def lazy_constraint_callback(model: gp.Model, where):
+    new_cuts: int = 0
+
     # callback was invoked because the solver found an optimal integral solution
     if where == GRB.Callback.MIPSOL:
         # check integer solution for feasibility
         if model._formulation == "cec":
-            find_violated_cec_int(model)
+            new_cuts = find_violated_cec_int(model)
         elif model._formulation == "dcc":
-            find_violated_dcc_int(model)
+            new_cuts = find_violated_dcc_int(model)
 
-def find_violated_cec_int(model: gp.Model):
+    # increment the counter for the total number of added cutting planes
+    model._cuts += new_cuts
+
+
+def find_violated_cec_int(model: gp.Model) -> int:
     # Create a graph including all edges who's x-value is (roughly) 1
     x = model._x
     G = nx.Graph()
@@ -27,17 +34,19 @@ def find_violated_cec_int(model: gp.Model):
         C = nx.find_cycle(G)
         # Add lazy constraint to eliminate this cycle
         model.cbLazy(gp.quicksum(x[i, j] + x[j, i] for i, j in C) <= len(C) - 1)
+        return 1
     except nx.NetworkXNoCycle:
-        return
+        return 0
 
 
-def find_violated_dcc_int(model: gp.Model):
+def find_violated_dcc_int(model: gp.Model) -> int:
     # add your DCC separation code here
     digraph_with_zero = model._digraph_with_zero.copy()
     digraph = model._graph.copy()
     x = model._x
     y = model._y
     source_vertex = 0
+    cuts_added = 0
 
     # Label all arcs with weight w_ij = x_ij
     for i, j in digraph_with_zero.edges():
@@ -55,3 +64,6 @@ def find_violated_dcc_int(model: gp.Model):
                 gp.quicksum(x[u, v] for u, v in digraph_with_zero.edges() if u in s and v in t)
                 >= y[target_node]
             )
+            cuts_added += 1
+
+    return cuts_added
