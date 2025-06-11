@@ -1,4 +1,4 @@
-# Programming Project - Part 1
+# Programming Project
 
 _Hesham Morgan, Johannes Riedmann_
 
@@ -26,13 +26,13 @@ To run the optimization of a specific formulation use the following command in t
 uv run src/project/part_1/kmst.py -k 4 --instance "instances/project/g01.dat" --formulation seq
 ```
 
-Replace the k-value, the instance file, and the respective formulation (`"seq", "scf", "mcf"`) as you please.
+Replace the k-value, the instance file, and the respective formulation (`"seq", "scf", "mcf", "cec", "dcc"`) as you please.
 
 ### Running the benchmarking
 
 To do some benchmarking on increasingly large instances, run the `jobs.py` script instead.
 
-**Method 1:** Test all formulations (seq, scf, mcf) at the same time:
+**Method 1:** Test all formulations (seq, scf, mcf, cec, dcc) at the same time:
 ```sh
 uv run src/project/part_1/jobs.py
 ```

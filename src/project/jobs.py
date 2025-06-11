@@ -32,7 +32,7 @@ def run_jobs(instance_dir: str, results_file: str, *, specific_formulation: str 
     if specific_formulation:
         formulations = [specific_formulation]
     else:
-        formulations = ['seq', 'scf', 'mcf']
+        formulations = ['seq', 'scf', 'mcf', 'cec', 'dcc']
 
     args = GurobiArguments(8, 1, 3600)
     args.show = False
